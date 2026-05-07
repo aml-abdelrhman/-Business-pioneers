@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
+import type { UserRole } from "@/types/database";
 
 // إعداد إعدادات اللغة (يجب أن تتطابق مع ملف i18n.ts الخاص بك)
 const intlMiddleware = createIntlMiddleware({
@@ -14,7 +15,6 @@ const intlMiddleware = createIntlMiddleware({
   defaultLocale: "ar",
   localePrefix: "always",
 });
-import type { UserRole } from "@/types/database";
 
 // ─── Route access map ────────────────────────────────────────
 // null  = public (anyone)
@@ -121,7 +121,8 @@ export default auth((req: NextRequest & { auth: any }) => {
     return NextResponse.redirect(new URL(`${localePrefix}/auth/unauthorized`, req.url));
   }
 
-  return NextResponse.next();
+  // ✅ Crucial: Always return intlMiddleware to handle locale rewriting
+  return intlMiddleware(req);
 });
 
 export const config = {

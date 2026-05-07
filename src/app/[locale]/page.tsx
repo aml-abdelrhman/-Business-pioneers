@@ -6,11 +6,9 @@ import {
 import { coursesQueryOptions } from "@/queries";
 import { Hero } from "@/components/pages/Home/Hero";
 import About from "@/components/pages/Home/About";
-import TrendingCourses from "@/components/pages/Home/TrendingCourses";
 import Process from "@/components/pages/Home/Process";
 import Mastery from "@/components/pages/Home/mastery";
 import Map from "@/components/pages/Home/Map";
-import Join from "@/components/pages/Home/Join";
 import Partners from "@/components/pages/Home/partners";
 import Courses from "@/components/pages/courses/courses";
 import BestSellers from "@/components/pages/courses/BestSellers";

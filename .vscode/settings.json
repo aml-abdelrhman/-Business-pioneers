@@ -1,0 +1,5 @@
+{
+  "i18n-ally.localesPaths": ["src/i18n", "src/messages"],
+  "i18n-ally.keystyle": "nested",
+  "i18next.i18nPaths": "d:/hemma-front/src/i18n"
+}

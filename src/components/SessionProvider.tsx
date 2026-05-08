@@ -1,17 +1,24 @@
+// src/components/auth/SessionProvider.tsx
 "use client";
-import React from "react";
-import { SessionProvider as NextAuthSessionProvider } from "next-auth/react";
-import { PropsWithChildren } from "react";
 
-const SessionProvider = ({ children }: PropsWithChildren) => {
+import { SessionProvider as NextAuthProvider } from "next-auth/react";
+import type { Session } from "next-auth";
+
+// ← المهم: استقبل الـ session من الـ Server وبعتها للـ Provider
+export function SessionProvider({
+  children,
+  session,
+}: {
+  children: React.ReactNode;
+  session:  Session | null;   // ← الإضافة دي
+}) {
   return (
-    <NextAuthSessionProvider
+    <NextAuthProvider
+      session={session}           // ← الإضافة دي
       refetchInterval={5 * 60}
-      refetchOnWindowFocus={false}
+      refetchOnWindowFocus
     >
       {children}
-    </NextAuthSessionProvider>
+    </NextAuthProvider>
   );
-};
-
-export default SessionProvider;
+}

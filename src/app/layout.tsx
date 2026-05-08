@@ -1,16 +1,22 @@
-import React from "react";
-import "./globals.css";
-import SessionProvider from "@/components/SessionProvider";
-import { Analytics } from "@vercel/analytics/next";
-import { PropsWithChildren } from "react";
+// src/app/[locale]/layout.tsx
+import { auth }            from "@/auth";
+import { SessionProvider } from "@/components/auth/SessionProvider";
 
-const RootLayout = ({ children }: PropsWithChildren) => {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // ← جيب الـ session على الـ Server قبل ما الصفحة تتبعت
+  const session = await auth();
+
   return (
-    <SessionProvider>
-      {children}
-      <Analytics />
-    </SessionProvider>
+    <html>
+      <body>
+        <SessionProvider>
+          {children}
+        </SessionProvider>
+      </body>
+    </html>
   );
-};
-
-export default RootLayout;
+}

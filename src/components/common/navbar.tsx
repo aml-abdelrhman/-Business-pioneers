@@ -90,9 +90,13 @@ export const Navbar = () => {
   const pathname = usePathname();
   const locale = useLocale();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession({ required: false });
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+
+  if (status === "loading") {
+    return <div className="fixed top-0 left-0 right-0 h-20 bg-transparent" />; // حجز مساحة النيفبار أثناء التحميل
+  }
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -167,7 +171,7 @@ export const Navbar = () => {
               key={idx}
               href={item.href}
               className={cn(
-                "group flex items-center gap-1 px-3 py-1.5 text-[13px] font-bold transition-all rounded-full hover:bg-amber-500 hover:text-white",
+                "group flex items-center gap-1 px-3 py-1.5 text-[13px] font-bold transition-all rounded-full hover:bg-[#D4AF37] hover:text-white",
                 isScrolled ? "text-blue-900 dark:text-slate-200" : "text-white"
               )}
             >
@@ -208,7 +212,7 @@ export const Navbar = () => {
               <Button 
                 size="sm"
                 onClick={() => router.push("/auth/login")}
-                className="h-8 px-5 text-xs font-bold text-white transition-all border-none rounded-full shadow-sm bg-amber-500 hover:bg-blue-900"
+                className="h-8 px-5 text-xs font-bold text-white transition-all border-none rounded-full shadow-sm bg-[#D4AF37] hover:opacity-90"
               >
                 <LogIn className="w-3.5 h-3.5 mr-1.5" />
                 {t("login")}
@@ -251,7 +255,8 @@ export const Navbar = () => {
                     <Link
                       key={idx}
                       href={item.href}
-                      className="flex items-center gap-3 p-4 text-sm font-bold transition-all border rounded-xl group bg-white/5 dark:bg-slate-800/50 border-white/10 hover:bg-amber-500 hover:text-white"
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-3 p-4 text-sm font-bold transition-all border rounded-xl group bg-white/5 dark:bg-slate-800/50 border-white/10 hover:bg-[#D4AF37] hover:text-white"
                     >
                     <span className="inline-block transition-transform duration-300 group-hover:rotate-90 opacity-70">
                       ↖
@@ -270,8 +275,11 @@ export const Navbar = () => {
 
                   {!session && (
                      <Button 
-                      className="w-full py-6 text-lg font-bold bg-blue-900 rounded-xl"
-                      onClick={() => router.push("/auth/login")}
+                      className="w-full py-6 text-lg font-bold bg-[#D4AF37] hover:opacity-90 text-white rounded-xl"
+                      onClick={() => {
+                        setIsOpen(false);
+                        router.push("/auth/login");
+                      }}
                      >
                        {t("login")}
                      </Button>

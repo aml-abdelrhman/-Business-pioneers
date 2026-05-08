@@ -22,11 +22,15 @@ import { useRouter, Link } from "@/i18n/navigation";
 import Image from "next/image";
 
 const ProfilePage = () => {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession({ required: false });
   const locale = useLocale();
   const isAr = locale === "ar";
   const { darkMode } = useAppStore();
   const router = useRouter();
+
+  if (status === "loading") {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>; // أو أي spinner تفضلينه
+  }
 
   if (!session) return null; // أو عرض صفحة Loading
 

@@ -41,6 +41,7 @@ const CareersPage = () => {
   const swiperRef = useRef<any>(null);
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   
+  const [isGeneralCvSubmissionActive, setIsGeneralCvSubmissionActive] = useState(false); // New state for general CV
   // حالات النموذج
   const [formData, setFormData] = useState({
     fullName: "",
@@ -85,6 +86,7 @@ const CareersPage = () => {
       setSelectedJob(null);
       setIsSuccess(false);
       setUploadedFile(null);
+      setIsGeneralCvSubmissionActive(false); // Reset general CV mode
       setFormData({ fullName: "", email: "", phone: "", linkedin: "", portfolio: "", message: "" });
     }, 3000);
   };
@@ -357,8 +359,11 @@ const CareersPage = () => {
                   ? "نحن دائماً في بحث عن المبدعين، أرسل سيرتك الذاتية بشكل مباشر وسنتواصل معك." 
                   : "We are always looking for creatives. Send your CV directly and we will contact you."}
               </p>
-              <button 
-                onClick={() => setSelectedJob("general")}
+              <button
+                onClick={() => {
+                  setIsGeneralCvSubmissionActive(true); // Activate general CV mode
+                  setSelectedJob("general"); // Open the modal
+                }}
                 className="px-10 py-5 font-black tracking-widest text-black uppercase transition-all bg-white rounded-full shadow-2xl hover:bg-amber-600 hover:text-white shadow-white/5"
               >
                 {isAr ? "إرسال سيرة ذاتية عامة" : "Send General CV"}
@@ -371,7 +376,7 @@ const CareersPage = () => {
       {/* 6. Recruitment Modal (The Form) */}
       <AnimatePresence>
         {selectedJob && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 bg-black/90 backdrop-blur-lg"
           >
@@ -379,7 +384,11 @@ const CareersPage = () => {
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
               className="w-full max-w-2xl bg-[#0a0a0b] border border-white/10 rounded-[3rem] relative overflow-hidden max-h-[92vh] flex flex-col shadow-[0_0_100px_-20px_rgba(245,158,11,0.15)]"
             >
-              <button onClick={() => setSelectedJob(null)} className="absolute z-[60] p-3 md:p-4 transition-all rounded-full top-26 left-6 md:top-20 md:left-10 text-white/40 hover:text-white bg-white/5 hover:bg-white/10 backdrop-blur-xl border border-white/5 group">
+              <button onClick={() => {
+                setSelectedJob(null);
+                setIsGeneralCvSubmissionActive(false); // Reset general CV mode on close
+              }}
+              className="absolute z-[60] p-3 md:p-4 transition-all rounded-full top-26 left-6 md:top-20 md:left-10 text-white/40 hover:text-white bg-white/5 hover:bg-white/10 backdrop-blur-xl border border-white/5 group">
                 <X size={26} className="transition-transform group-hover:rotate-90" />
               </button>
               
@@ -398,7 +407,7 @@ const CareersPage = () => {
                   </motion.div>
                 ) : (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                    <div className="relative pt-0 space-y-4 md:pt-20">
+                    <div className="relative pt-8 space-y-4 md:pt-20">
                       <h3 className="text-4xl font-light tracking-tighter text-white md:text-5xl">{isAr ? "نموذج التقديم" : "Application Form"}</h3>
                       <p className="font-black text-[10px] tracking-[0.4em] uppercase text-amber-500 bg-amber-500/10 w-fit px-5 py-2 rounded-full border border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
                         {selectedJob === "general" 
@@ -417,20 +426,27 @@ const CareersPage = () => {
                             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "البريد الإلكتروني" : "Email"}</label>
                             <input required name="email" value={formData.email} onChange={handleInputChange} type="email" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="example@mail.com" />
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "رقم الجوال" : "Phone"}</label>
-                            <input required name="phone" value={formData.phone} onChange={handleInputChange} type="tel" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="+966" />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">LinkedIn</label>
-                            <input name="linkedin" value={formData.linkedin} onChange={handleInputChange} type="url" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="https://..." />
-                          </div>
+                          {/* Conditionally render or make optional for general CV submission */}
+                          {!isGeneralCvSubmissionActive && ( // Only show these if NOT general submission
+                            <>
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "رقم الجوال" : "Phone"}</label>
+                                <input name="phone" value={formData.phone} onChange={handleInputChange} type="tel" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="+966" />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">LinkedIn</label>
+                                <input name="linkedin" value={formData.linkedin} onChange={handleInputChange} type="url" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="https://..." />
+                              </div>
+                            </>
+                          )}
                        </div>
                        
-                       <div className="space-y-3">
+                       {!isGeneralCvSubmissionActive && ( // Only show this if NOT general submission
+                         <div className="space-y-3">
                           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "رابط محفظة الأعمال" : "Portfolio Link"}</label>
                           <input name="portfolio" value={formData.portfolio} onChange={handleInputChange} type="url" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="https://..." />
-                       </div>
+                         </div>
+                       )}
 
                        <div className="space-y-3">
                           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "السيرة الذاتية" : "CV / Resume"}</label>
@@ -455,8 +471,9 @@ const CareersPage = () => {
                               <p className="mt-1 text-[10px] text-slate-500">{isAr ? "الحد الأقصى 5 ميجابايت" : "Max size 5MB"}</p>
                           </div>
                        </div>
-
-                       <div className="space-y-3">
+                       
+                       {!isGeneralCvSubmissionActive && ( // Only show this if NOT general submission
+                         <div className="space-y-3">
                           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "رسالة إضافية" : "Additional Message"}</label>
                           <textarea 
                             name="message" 
@@ -466,7 +483,8 @@ const CareersPage = () => {
                             className="w-full p-5 text-sm font-medium text-white transition-all border border-white/5 outline-none resize-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" 
                             placeholder={isAr ? "نبذة قصيرة عنك..." : "Tell us about yourself..."} 
                           />
-                       </div>
+                         </div>
+                       )}
 
                        <button 
                         disabled={isSubmitting}

@@ -202,25 +202,22 @@ export async function loginAction(
     console.error("Error fetching user role during login:", error);
   }
 
+  let destination = isDefaultHome ? targetPath : callbackUrl!;
+
   try {
-    // نستخدم signIn لتعيين الكوكيز فقط، بدون توجيه مباشر
+    // التحسين: استخدام توجيه NextAuth المدمج أو التأكد من إتمام العملية
     await signIn("credentials", { 
       email:       parsed.data.email,
       password:    parsed.data.password,
-      redirect:    false, // منع signIn من التوجيه تلقائياً
+      redirect:    false, 
     });
-
-    // تحديد الوجهة النهائية: نستخدم targetPath (البروفايل) كخيار افتراضي بدلاً من الصفحة الرئيسية
-    const destination = isDefaultHome ? targetPath : callbackUrl!;
 
     // مسح الكاش هنا بعد نجاح تسجيل الدخول لضمان أن النظام يرى الجلسة الجديدة
     revalidatePath("/", "layout"); 
     revalidatePath(`/${locale}`, "layout");
     revalidatePath(destination, "layout");
 
-    redirect(destination); // توجيه يدوي بعد تحديث الكاش
   } catch (error: any) {
-    // تسجيل الخطأ بالتفصيل في الـ Terminal لرؤية السبب الحقيقي (مثل Email not confirmed)
     console.error("Auth.js Login Error Details:", {
       type: error?.type,
       name: error?.name,
@@ -250,6 +247,9 @@ export async function loginAction(
 
     return { success: false, message: "حدث خطأ غير متوقع أثناء تسجيل الدخول" };
   }
+
+  // التوجيه يجب أن يكون دائماً خارج بلوك الـ try/catch لضمان عمله في Next.js
+  redirect(destination);
 }
 
 // ─── Google Login ─────────────────────────────────────────────

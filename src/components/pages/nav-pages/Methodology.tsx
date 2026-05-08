@@ -215,7 +215,9 @@ const Methodology = () => {
             </div>
 
             <div className="flex flex-col w-full gap-4 sm:flex-row lg:w-auto">
-              <a 
+              <motion.a 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 href="/images/Strategic-Execution-Framework.pdf" 
                 target="_blank"
                 rel="noopener noreferrer"
@@ -228,9 +230,11 @@ const Methodology = () => {
                   <Maximize2 size={24} strokeWidth={2.5} />
                   <div className="absolute inset-0 transition-opacity opacity-0 rounded-2xl bg-gradient-to-tr from-white/30 to-transparent group-hover/btn:opacity-100" />
                 </div>
-              </a>
+              </motion.a>
 
-              <a 
+              <motion.a 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 href="/images/Strategic-Execution-Framework.pdf" 
                 download
                 className="flex items-center justify-between w-full gap-6 p-2 pr-8 transition-all duration-500 shadow-xl md:w-fit bg-amber-600 hover:bg-amber-500 rounded-3xl group/btn shadow-amber-600/40"
@@ -241,7 +245,7 @@ const Methodology = () => {
                 <div className="p-5 transition-all duration-500 rounded-2xl bg-slate-950 text-amber-500 group-hover/btn:scale-110">
                   <Download size={24} strokeWidth={2.5} />
                 </div>
-              </a>
+              </motion.a>
             </div>
           </div>
         </motion.div>

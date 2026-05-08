@@ -19,6 +19,7 @@ const slidesData = [
 export const Hero = () => {
   const t = useTranslations('Hero');
   const locale = useLocale();
+  const isAr = locale === 'ar';
   const { darkMode } = useAppStore();
   const [current, setCurrent] = useState(0);
 
@@ -68,13 +69,13 @@ export const Hero = () => {
       </AnimatePresence>
 
       {/* حاوية المحتوى الرئيسية */}
-      <div className="absolute inset-0 z-10 flex flex-col justify-end pb-12 md:pb-20 px-4 md:px-20">
-        <div className="container max-w-7xl w-full">
+      <div className="absolute inset-0 z-10 flex flex-col justify-end px-4 pb-12 md:pb-20 md:px-20">
+        <div className="container w-full max-w-7xl">
           
-          <div className="flex flex-col md:flex-row items-end justify-between gap-8">
+          <div className="flex flex-col items-end justify-between gap-8 md:flex-row">
             
             {/* نصوص الهيرو */}
-            <div className="w-full md:flex-1 text-white text-center md:text-start">
+            <div className="w-full text-center text-white md:flex-1 md:text-start">
               <motion.div
                 key={`content-${current}`}
                 initial={{ y: 30, opacity: 0 }}
@@ -88,18 +89,18 @@ export const Hero = () => {
                   {t(slide.titleKey)}
                 </h3>
                 
-                <p className="text-base md:text-xl opacity-80 mb-8 max-w-4xl mx-auto md:mx-0 line-clamp-3 md:line-clamp-none leading-relaxed">
+                <p className="max-w-4xl mx-auto mb-8 text-base leading-relaxed md:text-xl opacity-80 md:mx-0 line-clamp-3 md:line-clamp-none">
                   {t(slide.descKey)}
                 </p>
 
-                <div className="flex flex-col sm:flex-row items-center gap-4 justify-center md:justify-start">
-                  <Link href="/courses" className="w-full sm:w-auto">
+                <div className="flex flex-col items-center justify-center gap-4 sm:flex-row md:justify-start">
+                  <Link href="#courses" className="w-full sm:w-auto">
                     <Button 
                       size="lg"
-                      className="w-full sm:w-auto rounded-full px-8 py-6 text-base font-bold bg-amber-500 text-white hover:bg-white hover:text-slate-900 transition-all duration-300 group shadow-lg shadow-amber-500/20"
+                      className="w-full sm:w-auto rounded-full px-8 py-6 text-base font-bold bg-[#D4AF37] text-white hover:bg-white hover:text-[#D4AF37] border-2 border-[#D4AF37] transition-all duration-300 group shadow-lg shadow-[#D4AF37]/20"
                     >
-                      {t('Explore_Courses')}
-                      <ArrowUpRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
+                      {isAr ? "أعمالنا" : "Our Works"}
+                      <ArrowUpRight className="w-5 h-5 ml-2 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                     </Button>
                   </Link>
                 </div>
@@ -107,7 +108,7 @@ export const Hero = () => {
             </div>
 
             {/* التحكم والأسهم - في الموبايل تظهر بشكل متناسق أسفل النص */}
-            <div className="flex items-center justify-center md:justify-end gap-3 w-full md:w-auto pt-6 md:pt-0 border-t border-white/10 md:border-none">
+            <div className="flex items-center justify-center w-full gap-3 pt-6 border-t md:justify-end md:w-auto md:pt-0 border-white/10 md:border-none">
               
           
 
@@ -116,7 +117,7 @@ export const Hero = () => {
                   variant="outline"
                   size="icon"
                   onClick={prevSlide}
-                  className="w-12 h-12 md:w-16 md:h-16 rounded-full border-white/20 bg-white/5 text-white hover:bg-white hover:text-blue-900 backdrop-blur-md transition-all active:scale-90"
+                  className="w-12 h-12 text-white transition-all rounded-full md:w-16 md:h-16 border-white/20 bg-white/5 hover:bg-white hover:text-blue-900 backdrop-blur-md active:scale-90"
                 >
                   {locale === 'ar' ? <ChevronRight size={28} /> : <ChevronLeft size={28} />}
                 </Button>
@@ -125,7 +126,7 @@ export const Hero = () => {
                   variant="outline"
                   size="icon"
                   onClick={nextSlide}
-                  className="w-12 h-12 md:w-16 md:h-16 rounded-full border-white/20 bg-white/5 text-white hover:bg-white hover:text-blue-900 backdrop-blur-md transition-all active:scale-90"
+                  className="w-12 h-12 text-white transition-all rounded-full md:w-16 md:h-16 border-white/20 bg-white/5 hover:bg-white hover:text-blue-900 backdrop-blur-md active:scale-90"
                 >
                   {locale === 'ar' ? <ChevronLeft size={28} /> : <ChevronRight size={28} />}
                 </Button>

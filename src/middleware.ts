@@ -128,6 +128,6 @@ export default auth((req: NextRequest & { auth: any }) => {
 export const config = {
   matcher: [
     // Skip Next.js internals, static files, and API routes
-    "/((?!_next/static|_next/image|favicon.ico|api/|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|webmanifest)).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|webmanifest|pdf)).*)",
   ],
 };

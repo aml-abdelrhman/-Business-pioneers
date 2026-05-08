@@ -93,7 +93,7 @@ const Services = () => {
     <section 
       ref={containerRef}
       className={cn(
-        "py-24 relative overflow-hidden transition-colors duration-1000",
+        "pt-40 pb-24 relative overflow-hidden transition-colors duration-1000",
         darkMode ? "bg-[#030303]" : "bg-white"
       )} dir={isAr ? "rtl" : "ltr"}>
 

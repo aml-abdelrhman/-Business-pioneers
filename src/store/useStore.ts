@@ -19,7 +19,7 @@ export const useAppStore = create<AppState>()(
       user: null,
       wishlist: [],
       cart: [],
-      darkMode: true,
+      darkMode: false,
       setUser: (user) => set({ user }),
       logout: () => set({ user: null, wishlist: [], cart: [] }),
       addToWishlist: (id) =>

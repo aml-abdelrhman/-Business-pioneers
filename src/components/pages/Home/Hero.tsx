@@ -3,12 +3,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { Link } from '@/i18n/routing';
 import { useTranslations, useLocale } from 'next-intl';
 import { useAppStore } from '@/store/useStore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, ChevronLeft, ArrowUpRight } from 'lucide-react';
+import InterestForm from '@/components/pages/InterestForm';
 
 const slidesData = [
   { bg: '/images/hero1.png', titleKey: 'title_1', descKey: 'desc_1' },
@@ -22,6 +22,7 @@ export const Hero = () => {
   const isAr = locale === 'ar';
   const { darkMode } = useAppStore();
   const [current, setCurrent] = useState(0);
+  const [isInterestModalOpen, setIsInterestModalOpen] = useState(false);
 
   const nextSlide = useCallback(() => {
     setCurrent((prev) => (prev + 1) % slidesData.length);
@@ -94,15 +95,14 @@ export const Hero = () => {
                 </p>
 
                 <div className="flex flex-col items-center justify-center gap-4 sm:flex-row md:justify-start">
-                  <Link href="#courses" className="w-full sm:w-auto">
-                    <Button 
-                      size="lg"
-                      className="w-full sm:w-auto rounded-full px-8 py-6 text-base font-bold bg-[#D4AF37] text-white hover:bg-white hover:text-[#D4AF37] border-2 border-[#D4AF37] transition-all duration-300 group shadow-lg shadow-[#D4AF37]/20"
-                    >
-                      {isAr ? "أعمالنا" : "Our Works"}
-                      <ArrowUpRight className="w-5 h-5 ml-2 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
-                    </Button>
-                  </Link>
+                  <Button 
+                    size="lg"
+                    onClick={() => setIsInterestModalOpen(true)}
+                    className="w-full sm:w-auto rounded-full px-8 py-6 text-base font-bold bg-[#D4AF37] text-white hover:bg-white hover:text-[#D4AF37] border-2 border-[#D4AF37] transition-all duration-300 group shadow-lg shadow-[#D4AF37]/20"
+                  >
+                    {isAr ? "سجل اهتمامك" : "Register Interest"}
+                    <ArrowUpRight className="w-5 h-5 ml-2 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
+                  </Button>
                 </div>
               </motion.div>
             </div>
@@ -136,6 +136,11 @@ export const Hero = () => {
           </div>
         </div>
       </div>
+
+      <InterestForm 
+        isOpen={isInterestModalOpen} 
+        onClose={() => setIsInterestModalOpen(false)} 
+      />
     </section>
   );
 };

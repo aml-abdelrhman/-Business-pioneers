@@ -30,6 +30,14 @@ export const useAppStore = create<AppState>()(
         })),
       toggleDarkMode: () => set((state) => ({ darkMode: !state.darkMode })),
     }),
-    { name: 'etech-storage' }
+    { 
+      name: 'etech-storage',
+      // تحديد الحقول التي يتم حفظها فقط واستبعاد darkMode
+      partialize: (state) => ({ 
+        user: state.user, 
+        wishlist: state.wishlist, 
+        cart: state.cart 
+      }),
+    }
   )
 );

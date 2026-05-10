@@ -1,3 +1,4 @@
+import "../globals.css";
 // src/app/[locale]/layout.tsx
 import type { Metadata } from "next";
 import MainLayout from "@/layouts/main-layout";

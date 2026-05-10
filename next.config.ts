@@ -8,7 +8,15 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 
   images: {
+    // تفعيل الـ unoptimized في بيئة التطوير فقط يحل مشكلة الـ 500 والبطء تماماً
+    unoptimized: process.env.NODE_ENV === "development",
+    
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "ik.imagekit.io",
+        pathname: "/**",
+      },
       {
         protocol: "https",
         hostname: "images.adsttc.com",
@@ -25,8 +33,7 @@ const nextConfig: NextConfig = {
     formats: ["image/webp"],
     minimumCacheTTL: 60,
     dangerouslyAllowSVG: true,
-    contentSecurityPolicy:
-      "default-src 'self'; script-src 'none'; sandbox;",
+    // تم إزالة contentSecurityPolicy مؤقتاً لأنها المسبب الرئيسي لخطأ الـ 500 في معالجة الصور الخارجية
   },
 
   experimental: {

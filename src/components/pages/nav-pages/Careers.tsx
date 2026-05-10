@@ -2,7 +2,9 @@
 
 import React, { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/lib/supabase"; 
 import { useLocale } from "next-intl";
+import { ImageKitProvider, IKUpload, IKImage } from 'imagekitio-next';
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useStore";
@@ -34,6 +36,18 @@ import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/effect-fade";
 
+// تعريف الهيكل لضمان توافق البيانات مع قاعدة البيانات
+interface JobApplication {
+  full_name: string;
+  email: string;
+  phone: string;
+  position: string;
+  message?: string;
+  cv_url: string;
+  cv_filename: string;
+  is_general: boolean;
+}
+
 const CareersPage = () => {
   const locale = useLocale();
   const isAr = locale === "ar";
@@ -42,13 +56,14 @@ const CareersPage = () => {
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   
   const [isGeneralCvSubmissionActive, setIsGeneralCvSubmissionActive] = useState(false); // New state for general CV
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   // حالات النموذج
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     phone: "",
-    linkedin: "",
-    portfolio: "",
+    position: "",
     message: ""
   });
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -63,31 +78,78 @@ const CareersPage = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setUploadedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setUploadedFile(file);
+      setUploadedFileUrl(null);
+    }
+  };
+
+  const authenticator = async () => {
+    try {
+      const response = await fetch('/api/imagekit-auth');
+      if (!response.ok) throw new Error(`Failed to fetch auth params: ${response.statusText}`);
+      
+      const data = await response.json();
+      const { signature, token, expire } = data;
+      return { signature, token, expire };
+    } catch (error) {
+      console.error("ImageKit Authentication Error:", error);
+      throw error;
     }
   };
 
   const handleApplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadedFile) {
+    if (!uploadedFileUrl) {
       alert(isAr ? "يرجى رفع السيرة الذاتية أولاً" : "Please upload your CV first");
       return;
     }
 
     setIsSubmitting(true);
-    // محاكاة عملية الإرسال للسيرفر
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsSubmitting(false);
-    setIsSuccess(true);
+
+    try {
+      const cvUrl = uploadedFileUrl;
+      console.log("✅ Success: CV URL obtained:", cvUrl);
+
+      // تحديد المسمى الوظيفي
+      const jobTitle = selectedJob === "general" 
+        ? formData.position
+        : openJobs.find(j => j.id === selectedJob)?.title || "Unknown";
+
+      // 3. تجهيز البيانات للإرسال لجدول job_applications
+      const applicationData: JobApplication = {
+        full_name: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        position: jobTitle,
+        message: formData.message,
+        cv_url: cvUrl,
+        cv_filename: uploadedFile?.name || "cv.pdf",
+        is_general: selectedJob === "general"
+      };
+
+      const { error: insertError } = await supabase
+        .from('job_applications')
+        .insert([applicationData] as any);
+
+      if (insertError) throw insertError;
+
+      setIsSuccess(true);
+    } catch (error: any) {
+      console.error("Error Log:", error);
+      alert(isAr ? "❌ حدث خطأ أثناء إرسال الطلب" : "❌ Error sending application");
+    } finally {
+      setIsSubmitting(false);
+    }
 
     // تصفير وإغلاق بعد النجاح
     setTimeout(() => {
       setSelectedJob(null);
       setIsSuccess(false);
       setUploadedFile(null);
+      setUploadedFileUrl(null);
       setIsGeneralCvSubmissionActive(false); // Reset general CV mode
-      setFormData({ fullName: "", email: "", phone: "", linkedin: "", portfolio: "", message: "" });
+      setFormData({ fullName: "", email: "", phone: "", position: "", message: "" });
     }, 3000);
   };
 
@@ -378,17 +440,17 @@ const CareersPage = () => {
         {selectedJob && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 bg-black/90 backdrop-blur-lg"
+            className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 bg-[#3d4427]/90 backdrop-blur-md"
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              className="w-full max-w-2xl bg-[#0a0a0b] border border-white/10 rounded-[3rem] relative overflow-hidden max-h-[92vh] flex flex-col shadow-[0_0_100px_-20px_rgba(245,158,11,0.15)]"
+              className="w-full max-w-2xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-white/10 rounded-[3rem] relative overflow-hidden max-h-[92vh] flex flex-col shadow-2xl shadow-black/30"
             >
               <button onClick={() => {
                 setSelectedJob(null);
                 setIsGeneralCvSubmissionActive(false); // Reset general CV mode on close
               }}
-              className="absolute z-[60] p-3 md:p-4 transition-all rounded-full top-26 left-6 md:top-20 md:left-10 text-white/40 hover:text-white bg-white/5 hover:bg-white/10 backdrop-blur-xl border border-white/5 group">
+              className="absolute z-[60] p-3 md:p-4 transition-all rounded-full top-26 left-6 md:top-20 md:left-10 text-slate-400 hover:text-amber-600 bg-slate-50 dark:bg-white/5 backdrop-blur-xl border border-slate-100 dark:border-white/5 group">
                 <X size={26} className="transition-transform group-hover:rotate-90" />
               </button>
               
@@ -402,13 +464,25 @@ const CareersPage = () => {
                     <div className="flex items-center justify-center w-20 h-20 mx-auto text-green-500 rounded-full bg-green-500/10">
                       <CheckCircle2 size={40} />
                     </div>
-                    <h3 className="text-2xl font-bold text-white">{isAr ? "تم إرسال طلبك بنجاح!" : "Application Sent!"}</h3>
-                    <p className="text-slate-400">{isAr ? "سيتواصل معك فريق التوظيف لدينا قريباً." : "Our recruitment team will contact you soon."}</p>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white">{isAr ? "تم إرسال طلبك بنجاح!" : "Application Sent!"}</h3>
+                    <p className="text-slate-600 dark:text-slate-400 text-lg">{isAr ? "سيتواصل معك فريق التوظيف لدينا قريباً." : "Our recruitment team will contact you soon."}</p>
+                    <button
+                      onClick={() => {
+                        setSelectedJob(null);
+                        setIsSuccess(false);
+                        setUploadedFile(null);
+                        setIsGeneralCvSubmissionActive(false);
+                        setFormData({ fullName: "", email: "", phone: "", position: "", message: "" });
+                      }}
+                      className="mt-8 px-10 py-4 font-black tracking-widest uppercase transition-all bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-2xl hover:scale-[1.02] active:scale-95 shadow-xl"
+                    >
+                      {isAr ? "إغلاق" : "Close"}
+                    </button>
                   </motion.div>
                 ) : (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                     <div className="relative pt-8 space-y-4 md:pt-20">
-                      <h3 className="text-4xl font-light tracking-tighter text-white md:text-5xl">{isAr ? "نموذج التقديم" : "Application Form"}</h3>
+                      <h3 className="text-5xl font-bold tracking-tighter text-slate-900 dark:text-white md:text-6xl">{isAr ? "نموذج التقديم" : "Application Form"}</h3>
                       <p className="font-black text-[10px] tracking-[0.4em] uppercase text-amber-500 bg-amber-500/10 w-fit px-5 py-2 rounded-full border border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
                         {selectedJob === "general" 
                           ? (isAr ? "سيرة ذاتية عامة" : "General CV Submission")
@@ -419,81 +493,94 @@ const CareersPage = () => {
                     <form onSubmit={handleApplySubmit} className="space-y-6">
                        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                           <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "الاسم الكامل" : "Full Name"}</label>
-                            <input required name="fullName" value={formData.fullName} onChange={handleInputChange} type="text" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="..." />
+                            <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 px-3">{isAr ? "الاسم الكامل" : "Full Name"}</label>
+                            <input required name="fullName" value={formData.fullName} onChange={handleInputChange} type="text" className="w-full p-4 text-base font-medium text-slate-900 dark:text-white transition-all border border-slate-200 dark:border-white/5 outline-none rounded-2xl bg-white dark:bg-white/[0.03] focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50" placeholder="..." />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "البريد الإلكتروني" : "Email"}</label>
-                            <input required name="email" value={formData.email} onChange={handleInputChange} type="email" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="example@mail.com" />
+                            <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 px-3">{isAr ? "البريد الإلكتروني" : "Email"}</label>
+                            <input required name="email" value={formData.email} onChange={handleInputChange} type="email" className="w-full p-4 text-base font-medium text-slate-900 dark:text-white transition-all border border-slate-200 dark:border-white/5 outline-none rounded-2xl bg-white dark:bg-white/[0.03] focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50" placeholder="example@mail.com" />
                           </div>
-                          {/* Conditionally render or make optional for general CV submission */}
-                          {!isGeneralCvSubmissionActive && ( // Only show these if NOT general submission
-                            <>
-                              <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "رقم الجوال" : "Phone"}</label>
-                                <input name="phone" value={formData.phone} onChange={handleInputChange} type="tel" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="+966" />
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">LinkedIn</label>
-                                <input name="linkedin" value={formData.linkedin} onChange={handleInputChange} type="url" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="https://..." />
-                              </div>
-                            </>
+                          <div className="space-y-2">
+                            <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 px-3">{isAr ? "رقم الهاتف" : "Phone Number"}</label>
+                            <input required name="phone" value={formData.phone} onChange={handleInputChange} type="tel" className="w-full p-4 text-base font-medium text-slate-900 dark:text-white transition-all border border-slate-200 dark:border-white/5 outline-none rounded-2xl bg-white dark:bg-white/[0.03] focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50" placeholder="05xxxxxxxx" />
+                          </div>
+
+                          {selectedJob === "general" && (
+                            <div className="space-y-2">
+                              <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 px-3">{isAr ? "الوظيفة المستهدفة" : "Target Job"}</label>
+                              <input required name="position" value={formData.position} onChange={handleInputChange} type="text" className="w-full p-4 text-base font-medium text-slate-900 dark:text-white transition-all border border-slate-200 dark:border-white/5 outline-none rounded-2xl bg-white dark:bg-white/[0.03] focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50" placeholder={isAr ? "مثال: مطور واجهات" : "e.g. Frontend Developer"} />
+                            </div>
                           )}
                        </div>
                        
-                       {!isGeneralCvSubmissionActive && ( // Only show this if NOT general submission
-                         <div className="space-y-3">
-                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "رابط محفظة الأعمال" : "Portfolio Link"}</label>
-                          <input name="portfolio" value={formData.portfolio} onChange={handleInputChange} type="url" className="w-full p-4 text-sm font-medium text-white transition-all border border-white/5 outline-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" placeholder="https://..." />
-                         </div>
-                       )}
-
                        <div className="space-y-3">
-                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "السيرة الذاتية" : "CV / Resume"}</label>
+                          <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 px-3">{isAr ? "السيرة الذاتية" : "CV / Resume"}</label>
                           <div 
                             onClick={() => fileInputRef.current?.click()}
                             className={cn(
                               "p-8 text-center transition-all border-2 border-dashed cursor-pointer rounded-3xl group",
-                              uploadedFile ? "border-amber-500 bg-amber-500/10" : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-amber-500/30 shadow-inner"
+                              uploadedFileUrl ? "border-amber-500 bg-amber-500/5" : "border-slate-200 dark:border-white/5 bg-white dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-amber-500/30 shadow-sm"
                             )}
                           >
-                              <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                className="hidden" 
-                                accept=".pdf" 
-                                onChange={handleFileChange} 
-                              />
-                              <FileUp size={28} className={cn("mx-auto mb-3 transition-colors", uploadedFile ? "text-amber-500" : "text-white/20 group-hover:text-amber-500")} />
-                              <p className="text-sm font-medium text-slate-300">
+                              <ImageKitProvider 
+                                publicKey={process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY || ""} 
+                                urlEndpoint={process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT || ""} 
+                                authenticator={authenticator}
+                              >
+                                <IKUpload
+                                  ref={fileInputRef}
+                                  className="hidden"
+                                  fileName="application_cv.pdf"
+                                  accept=".pdf"
+                                  useUniqueFileName={true}
+                                  folder="/cv_applications"
+                                  onUploadStart={() => setIsUploading(true)}
+                                  onChange={handleFileChange}
+                                  onError={(err: any) => {
+                                    console.error("ImageKit Upload Error:", err);
+                                    setIsUploading(false);
+                                  }}
+                                  onSuccess={(res: any) => {
+                                    console.log("رابط الملف الجديد:", res.url);
+                                    setUploadedFileUrl(res.url);
+                                    setIsUploading(false);
+                                  }}
+                                />
+                              </ImageKitProvider>
+                              <FileUp size={32} className={cn("mx-auto mb-3 transition-colors", uploadedFileUrl ? "text-amber-500" : "text-slate-300 dark:text-white/20 group-hover:text-amber-500")} />
+                              <p className="text-base font-bold text-slate-700 dark:text-slate-300">
                                 {uploadedFile ? uploadedFile.name : (isAr ? "ارفع السيرة الذاتية (PDF)" : "Upload your CV (PDF)")}
                               </p>
-                              <p className="mt-1 text-[10px] text-slate-500">{isAr ? "الحد الأقصى 5 ميجابايت" : "Max size 5MB"}</p>
+                              <p className="mt-1 text-xs text-slate-500">{isAr ? "الحد الأقصى 5 ميجابايت" : "Max size 5MB"}</p>
                           </div>
                        </div>
                        
                        {!isGeneralCvSubmissionActive && ( // Only show this if NOT general submission
                          <div className="space-y-3">
-                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 px-3">{isAr ? "رسالة إضافية" : "Additional Message"}</label>
+                          <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 px-3">{isAr ? "رسالة إضافية" : "Additional Message"}</label>
                           <textarea 
                             name="message" 
                             value={formData.message} 
                             onChange={handleInputChange} 
                             rows={4} 
-                            className="w-full p-5 text-sm font-medium text-white transition-all border border-white/5 outline-none resize-none rounded-2xl bg-white/[0.03] focus:bg-white/[0.07] focus:border-amber-500/30" 
+                            className="w-full p-5 text-base font-medium text-slate-900 dark:text-white transition-all border border-slate-200 dark:border-white/5 outline-none resize-none rounded-2xl bg-white dark:bg-white/[0.03] focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50" 
                             placeholder={isAr ? "نبذة قصيرة عنك..." : "Tell us about yourself..."} 
                           />
                          </div>
                        )}
 
                        <button 
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || isUploading}
                         className="flex items-center justify-center w-full gap-3 py-6 text-sm font-black tracking-widest uppercase transition-all bg-amber-600 text-slate-950 rounded-2xl hover:bg-amber-500 hover:scale-[1.02] active:scale-95 disabled:opacity-50 shadow-xl shadow-amber-600/20"
                        >
-                          {isSubmitting ? (
+                          {isSubmitting || isUploading ? (
                             <div className="w-5 h-5 border-2 rounded-full border-slate-950/30 border-t-slate-950 animate-spin" />
                           ) : <Send size={18} />}
-                          {isSubmitting ? (isAr ? "جاري الإرسال..." : "Sending...") : (isAr ? "إرسال الطلب الآن" : "Submit Application Now")}
+                          {isSubmitting 
+                            ? (isAr ? "جاري الإرسال..." : "Sending...") 
+                            : isUploading 
+                              ? (isAr ? "جاري الرفع..." : "Uploading...")
+                              : (isAr ? "إرسال الطلب الآن" : "Submit Application Now")}
                        </button>
                     </form>
                   </motion.div>

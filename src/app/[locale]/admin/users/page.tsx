@@ -1,1043 +1,262 @@
 "use client";
 
-// ============================================================
-
-// src/app/[locale]/admin/users/page.tsx — Users Management
-
-// ============================================================
-
-
-
-import { useState, useTransition }  from "react";
-
-import { motion }                   from "framer-motion";
-
-import { useLocale }                from "next-intl";
-
-import { cn }                       from "@/lib/utils";
-
-import { useAppStore }              from "@/store/useStore";
-
-import {
-
-  toggleUserStatusAction,
-
-  changeUserRoleAction,
-
-  createStaffAccountAction,
-
-} from "@/actions/auth.actions";
-
-import { Button }   from "@/components/ui/button";
-
-import { Input }    from "@/components/ui/input";
-
-import { Badge }    from "@/components/ui/badge";
-
-import {
-
-  Users, Search, Plus, Filter,
-
-  MoreVertical, ShieldCheck, ShieldOff,
-
-  UserCog, Trash2, Mail, Phone,
-
-  CheckCircle2, XCircle, Clock,
-
-  ChevronLeft, ChevronRight, X,
-
-  Loader2, Eye,
-
-} from "lucide-react";
-
-import {
-
-  DropdownMenu,
-
-  DropdownMenuContent,
-
-  DropdownMenuItem,
-
-  DropdownMenuSeparator,
-
-  DropdownMenuTrigger,
-
-} from "@/components/ui/dropdown-menu";
-
-import type { UserRole } from "@/types/database";
-
-
-
-// ─── Mock Data (replace with TanStack Query fetch) ────────────
-
-const MOCK_USERS = [
-
-  { id: "u1", full_name: "أحمد محمد الشمري",  email: "ahmed@example.com",  phone: "0501234567", role: "user"      as UserRole, is_active: true,  is_verified: true,  created_at: "2025-01-15", avatar_url: null },
-
-  { id: "u2", full_name: "سارة عبدالله العمري",email: "sara@example.com",   phone: "0559876543", role: "agent"     as UserRole, is_active: true,  is_verified: true,  created_at: "2025-02-03", avatar_url: null },
-
-  { id: "u3", full_name: "خالد إبراهيم الراشد",email: "khaled@example.com", phone: "0534567890", role: "developer" as UserRole, is_active: true,  is_verified: false, created_at: "2025-03-20", avatar_url: null },
-
-  { id: "u4", full_name: "فاطمة حسن القحطاني", email: "fatima@example.com", phone: "0512345678", role: "user"      as UserRole, is_active: false, is_verified: true,  created_at: "2025-04-10", avatar_url: null },
-
-  { id: "u5", full_name: "محمد سالم الزهراني", email: "msalem@example.com", phone: "0567891234", role: "agent"     as UserRole, is_active: true,  is_verified: true,  created_at: "2025-04-22", avatar_url: null },
-
-  { id: "u6", full_name: "نورة علي المطيري",   email: "noura@example.com",  phone: "0523456789", role: "user"      as UserRole, is_active: true,  is_verified: false, created_at: "2025-05-01", avatar_url: null },
-
-];
-
-
-
-const ROLE_CONFIG: Record<UserRole, { label: string; color: string; bg: string }> = {
-
-  admin:     { label: "مدير",    color: "text-rose-500",   bg: "bg-rose-500/10"   },
-
-  agent:     { label: "وكيل",   color: "text-amber-600",  bg: "bg-amber-500/10"  },
-
-  developer: { label: "مطور",   color: "text-purple-500", bg: "bg-purple-500/10" },
-
-  user:      { label: "عميل",   color: "text-blue-600",   bg: "bg-blue-500/10"   },
-
-};
-
-
-
-const FILTER_ROLES = [
-
-  { label: "الكل",       value: "all"       },
-
-  { label: "عملاء",     value: "user"      },
-
-  { label: "وكلاء",     value: "agent"     },
-
-  { label: "مطورون",    value: "developer" },
-
-  { label: "مدراء",     value: "admin"     },
-
-];
-
-
-
-// ─── Create Staff Modal ───────────────────────────────────────
-
-function CreateStaffModal({
-
-  darkMode, onClose,
-
-}: { darkMode: boolean; onClose: () => void }) {
-
-  const [isPending, startTransition] = useTransition();
-
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
-
-
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-
-    e.preventDefault();
-
-    const fd = new FormData(e.currentTarget);
-
-    startTransition(async () => {
-
-      const res = await createStaffAccountAction({ success: false, message: "" }, fd);
-
-      setResult(res);
-
-      if (res.success) setTimeout(onClose, 1500);
-
-    });
-
-  }
-
-
-
-  return (
-
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      <motion.div
-
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-
-        exit={{ opacity: 0, scale: 0.95 }}
-
-        className={cn(
-
-          "relative w-full max-w-md rounded-2xl border p-6 shadow-2xl z-10",
-
-          darkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"
-
-        )}
-
-      >
-
-        {/* Header */}
-
-        <div className="flex items-center justify-between mb-5">
-
-          <h3 className={cn("text-base font-black", darkMode ? "text-white" : "text-slate-900")}>
-
-            إضافة موظف جديد
-
-          </h3>
-
-          <button onClick={onClose} className={cn("w-7 h-7 rounded-lg flex items-center justify-center", darkMode ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500")}>
-
-            <X size={15} />
-
-          </button>
-
-        </div>
-
-
-
-        {/* Feedback */}
-
-        {result && (
-
-          <div className={cn(
-
-            "flex items-center gap-2 rounded-xl px-3 py-2.5 mb-4 text-sm",
-
-            result.success ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border border-rose-500/20"
-
-          )}>
-
-            {result.success ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-
-            {result.message}
-
-          </div>
-
-        )}
-
-
-
-        <form onSubmit={handleSubmit} className="space-y-3">
-
-          {[
-
-            { name: "full_name", label: "الاسم الكامل",          type: "text",     placeholder: "محمد أحمد" },
-
-            { name: "email",     label: "البريد الإلكتروني",     type: "email",    placeholder: "staff@rawad.com" },
-
-            { name: "phone",     label: "رقم الجوال",            type: "tel",      placeholder: "05xxxxxxxx" },
-
-            { name: "password",  label: "كلمة المرور المؤقتة",   type: "password", placeholder: "Rawad@2026" },
-
-            { name: "confirm_password", label: "تأكيد كلمة المرور", type: "password", placeholder: "Rawad@2026" },
-
-          ].map(f => (
-
-            <div key={f.name} className="space-y-1">
-
-              <label className={cn("text-xs font-semibold", darkMode ? "text-slate-300" : "text-slate-700")}>{f.label}</label>
-
-              <Input
-
-                name={f.name} type={f.type} placeholder={f.placeholder} required
-
-                className={cn("rounded-xl h-9 text-sm", darkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200")}
-
-              />
-
-            </div>
-
-          ))}
-
-
-
-          <div className="space-y-1">
-
-            <label className={cn("text-xs font-semibold", darkMode ? "text-slate-300" : "text-slate-700")}>الدور الوظيفي</label>
-
-            <select
-
-              name="role"
-
-              required
-
-              className={cn("w-full rounded-xl h-9 px-3 text-sm border outline-none", darkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800")}
-
-            >
-
-              <option value="agent">وكيل عقاري</option>
-
-              <option value="developer">مطور عقاري</option>
-
-              <option value="admin">مدير نظام</option>
-
-            </select>
-
-          </div>
-
-
-
-          <div className="flex gap-2 pt-1">
-
-            <Button type="button" variant="outline" onClick={onClose} className={cn("flex-1 rounded-xl h-9 text-sm", darkMode ? "border-slate-700 text-slate-300" : "")}>
-
-              إلغاء
-
-            </Button>
-
-            <Button
-
-              type="submit" disabled={isPending}
-
-              className="flex-1 gap-2 text-sm font-bold text-white h-9 rounded-xl bg-gradient-to-r from-blue-900 to-blue-700"
-
-            >
-
-              {isPending ? <Loader2 size={14} className="animate-spin" /> : null}
-
-              إنشاء الحساب
-
-            </Button>
-
-          </div>
-
-        </form>
-
-      </motion.div>
-
-    </div>
-
-  );
-
+import React, { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  FiUsers, FiHome, FiTrendingUp, 
+  FiBell, FiSearch, FiClock, FiCheck, FiX, FiActivity
+} from "react-icons/fi";
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell 
+} from "recharts";
+import { supabase } from "@/lib/supabase";
+import { toast, Toaster } from "react-hot-toast";
+
+// --- Interfaces ---
+interface StatItem {
+  id: number;
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  color: string;
+  sub: string;
 }
 
-
-
-// ─── User Row ─────────────────────────────────────────────────
-
-function UserRow({
-
-  user, darkMode, onToggleStatus, onChangeRole,
-
-}: {
-
-  user: typeof MOCK_USERS[0];
-
-  darkMode: boolean;
-
-  onToggleStatus: (id: string) => void;
-
-  onChangeRole: (id: string, role: UserRole) => void;
-
-}) {
-
-  const roleConf = ROLE_CONFIG[user.role];
-
-  const initials = user.full_name.split(" ").slice(0, 2).map(w => w[0]).join("");
-
-
-
-  return (
-
-    <motion.tr
-
-      initial={{ opacity: 0 }}
-
-      animate={{ opacity: 1 }}
-
-      className={cn(
-
-        "border-b transition-colors",
-
-        darkMode ? "border-slate-800 hover:bg-slate-800/50" : "border-slate-100 hover:bg-slate-50"
-
-      )}
-
-    >
-
-      {/* User */}
-
-      <td className="px-4 py-3">
-
-        <div className="flex items-center gap-3">
-
-          <div className={cn(
-
-            "w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0",
-
-            user.is_active
-
-              ? "bg-gradient-to-br from-blue-900 to-blue-700 text-white"
-
-              : darkMode ? "bg-slate-700 text-slate-500" : "bg-slate-200 text-slate-400"
-
-          )}>
-
-            {initials}
-
-          </div>
-
-          <div>
-
-            <p className={cn("text-sm font-bold", darkMode ? "text-white" : "text-slate-900")}>
-
-              {user.full_name}
-
-            </p>
-
-            <p className={cn("text-xs", darkMode ? "text-slate-500" : "text-slate-400")}>
-
-              {user.email}
-
-            </p>
-
-          </div>
-
-        </div>
-
-      </td>
-
-
-
-      {/* Phone */}
-
-      <td className="hidden px-4 py-3 md:table-cell">
-
-        <span className={cn("text-xs", darkMode ? "text-slate-400" : "text-slate-600")} dir="ltr">
-
-          {user.phone}
-
-        </span>
-
-      </td>
-
-
-
-      {/* Role */}
-
-      <td className="px-4 py-3">
-
-        <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full", roleConf.bg, roleConf.color)}>
-
-          {roleConf.label}
-
-        </span>
-
-      </td>
-
-
-
-      {/* Status */}
-
-      <td className="hidden px-4 py-3 sm:table-cell">
-
-        {user.is_active ? (
-
-          <span className="flex items-center gap-1.5 text-xs text-emerald-600">
-
-            <CheckCircle2 size={12} /> نشط
-
-          </span>
-
-        ) : (
-
-          <span className="flex items-center gap-1.5 text-xs text-slate-400">
-
-            <XCircle size={12} /> موقوف
-
-          </span>
-
-        )}
-
-      </td>
-
-
-
-      {/* Verified */}
-
-      <td className="hidden px-4 py-3 lg:table-cell">
-
-        {user.is_verified ? (
-
-          <span className="flex items-center gap-1.5 text-xs text-blue-500">
-
-            <ShieldCheck size={12} /> موثق
-
-          </span>
-
-        ) : (
-
-          <span className="flex items-center gap-1.5 text-xs text-slate-400">
-
-            <Clock size={12} /> غير موثق
-
-          </span>
-
-        )}
-
-      </td>
-
-
-
-      {/* Date */}
-
-      <td className="hidden px-4 py-3 xl:table-cell">
-
-        <span className={cn("text-xs", darkMode ? "text-slate-500" : "text-slate-400")}>
-
-          {new Date(user.created_at).toLocaleDateString("ar-SA")}
-
-        </span>
-
-      </td>
-
-
-
-      {/* Actions */}
-
-      <td className="px-4 py-3">
-
-        <DropdownMenu>
-
-          <DropdownMenuTrigger asChild>
-
-            <Button variant="ghost" size="icon"
-
-              className={cn("w-8 h-8 rounded-lg", darkMode ? "hover:bg-slate-700" : "hover:bg-slate-100")}>
-
-              <MoreVertical size={15} />
-
-            </Button>
-
-          </DropdownMenuTrigger>
-
-          <DropdownMenuContent
-
-            align="end"
-
-            className={cn("min-w-[160px] rounded-xl border shadow-xl p-1",
-
-              darkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-100"
-
-            )}
-
-          >
-
-            <DropdownMenuItem className={cn("rounded-lg text-xs cursor-pointer gap-2",
-
-              darkMode ? "text-slate-300 hover:bg-slate-700" : "hover:bg-slate-50")}>
-
-              <Eye size={13} /> عرض التفاصيل
-
-            </DropdownMenuItem>
-
-
-
-            <DropdownMenuSeparator className={darkMode ? "bg-slate-700" : "bg-slate-100"} />
-
-
-
-            {/* Change role submenu */}
-
-            {(["agent", "developer", "admin", "user"] as UserRole[]).filter(r => r !== user.role).map(r => (
-
-              <DropdownMenuItem
-
-                key={r}
-
-                onClick={() => onChangeRole(user.id, r)}
-
-                className={cn("rounded-lg text-xs cursor-pointer gap-2",
-
-                  darkMode ? "text-slate-300 hover:bg-slate-700" : "hover:bg-slate-50")}>
-
-                <UserCog size={13} />
-
-                تحويل إلى {ROLE_CONFIG[r].label}
-
-              </DropdownMenuItem>
-
-            ))}
-
-
-
-            <DropdownMenuSeparator className={darkMode ? "bg-slate-700" : "bg-slate-100"} />
-
-
-
-            <DropdownMenuItem
-
-              onClick={() => onToggleStatus(user.id)}
-
-              className={cn("rounded-lg text-xs cursor-pointer gap-2",
-
-                user.is_active ? "text-rose-500 hover:bg-rose-500/10" : "text-emerald-500 hover:bg-emerald-500/10"
-
-              )}
-
-            >
-
-              {user.is_active
-
-                ? <><ShieldOff size={13} /> إيقاف الحساب</>
-
-                : <><ShieldCheck size={13} /> تفعيل الحساب</>
-
-              }
-
-            </DropdownMenuItem>
-
-          </DropdownMenuContent>
-
-        </DropdownMenu>
-
-      </td>
-
-    </motion.tr>
-
-  );
-
+interface ActivityItem {
+  id: string;
+  text: string;
+  time: string;
+  status: 'success' | 'pending';
 }
 
+interface ChartDataItem {
+  name: string;
+  value: number;
+}
 
+interface Project {
+  id: string;
+  title_ar: string;
+  created_at: string;
+  status_ar: string;
+  city_ar: string | null;
+  property_type_ar: string | null;
+}
 
-// ─── Main Page ────────────────────────────────────────────────
+export default function AdminDashboard() {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<StatItem[]>([]);
+  const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
+  const [chartData, setChartData] = useState<ChartDataItem[]>([]);
+  const [realProjects, setRealProjects] = useState<Project[]>([]);
 
-export default function AdminUsersPage() {
+  useEffect(() => {
+    fetchAllData();
+  }, []);
 
-  const { darkMode } = useAppStore();
+  const fetchAllData = async () => {
+    setLoading(true);
+    try {
+      // 1. جلب عدد المستخدمين (استخدام as any لتخطي خطأ الـ never role)
+      const { count: usersCount } = await (supabase
+        .from('profiles') as any)
+        .select('*', { count: 'exact', head: true });
 
-  const locale       = useLocale();
+      // 2. جلب المشاريع
+      const { data, error: projectsError } = await (supabase
+        .from('projects') as any)
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  const isRTL        = locale === "ar";
+      if (projectsError) throw projectsError;
 
+      const projects = (data as Project[]) || [];
 
+      // 3. معالجة الإحصائيات
+      const totalProps = projects.length;
+      const pendingProps = projects.filter(p => 
+        p.status_ar === 'معلق' || p.status_ar === 'pending' || !p.status_ar
+      ).length;
+      
+      setStats([
+        { id: 1, label: "إجمالي المستخدمين", value: (usersCount || 0).toLocaleString("ar-SA"), icon: <FiUsers />, color: "bg-blue-600", sub: "عضو مسجل" },
+        { id: 2, label: "العقارات المدرجة", value: totalProps.toLocaleString("ar-SA"), icon: <FiHome />, color: "bg-indigo-600", sub: "عقار نشط" },
+        { id: 3, label: "بانتظار المراجعة", value: pendingProps.toLocaleString("ar-SA"), icon: <FiClock />, color: "bg-amber-500", sub: "طلبات معلقة" },
+        { id: 4, label: "أداء المنصة", value: "٩٤٪", icon: <FiTrendingUp />, color: "bg-emerald-500", sub: "نسبة نمو مستقرة" },
+      ]);
 
-  const [users,        setUsers]        = useState(MOCK_USERS);
+      // 4. الرسم البياني
+      const cityGroups = projects.reduce((acc: Record<string, number>, curr: Project) => {
+        const city = curr.city_ar || "أخرى";
+        acc[city] = (acc[city] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
 
-  const [search,       setSearch]       = useState("");
+      const formattedChartData = Object.keys(cityGroups).map(city => ({
+        name: city,
+        value: cityGroups[city]
+      })).slice(0, 5);
 
-  const [roleFilter,   setRoleFilter]   = useState("all");
+      setChartData(formattedChartData.length > 0 ? formattedChartData : [{name: 'لا بيانات', value: 0}]);
+      setRealProjects(projects.slice(0, 6));
 
-  const [showModal,    setShowModal]    = useState(false);
+      // 5. النشاطات
+      setRecentActivities(projects.slice(0, 5).map(p => ({
+        id: p.id,
+        text: `مشروع جديد: ${p.title_ar || 'بدون عنوان'}`,
+        time: new Date(p.created_at).toLocaleDateString("ar-SA"),
+        status: p.status_ar === 'نشط' ? 'success' : 'pending'
+      })));
 
-  const [isPending,    startTransition] = useTransition();
-
-  const [currentPage,  setCurrentPage]  = useState(1);
-
-  const PER_PAGE = 10;
-
-
-
-  // Filter
-
-  const filtered = users.filter(u => {
-
-    const matchSearch = !search ||
-
-      u.full_name.includes(search) ||
-
-      u.email.includes(search) ||
-
-      u.phone.includes(search);
-
-    const matchRole = roleFilter === "all" || u.role === roleFilter;
-
-    return matchSearch && matchRole;
-
-  });
-
-
-
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
-
-  const paginated  = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
-
-
-
-  // Handlers
-
-  function handleToggleStatus(id: string) {
-
-    startTransition(async () => {
-
-      await toggleUserStatusAction(id);
-
-      setUsers(prev => prev.map(u => u.id === id ? { ...u, is_active: !u.is_active } : u));
-
-    });
-
-  }
-
-
-
-  function handleChangeRole(id: string, role: UserRole) {
-
-    startTransition(async () => {
-
-      await changeUserRoleAction(id, role);
-
-      setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u));
-
-    });
-
-  }
-
-
-
-  // Summary counts
-
-  const counts = {
-
-    total:     users.length,
-
-    active:    users.filter(u => u.is_active).length,
-
-    agents:    users.filter(u => u.role === "agent" || u.role === "developer").length,
-
-    unverified:users.filter(u => !u.is_verified).length,
-
+    } catch (error: any) {
+      toast.error("حدث خطأ في مزامنة البيانات");
+      console.error("Dashboard Error:", error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const updateProjectStatus = async (id: string, newStatus: string) => {
+    try {
+      const { error } = await (supabase
+        .from('projects') as any)
+        .update({ status_ar: newStatus })
+        .eq('id', id);
 
+      if (error) throw error;
+      toast.success(`تم تحديث الحالة لـ ${newStatus}`);
+      fetchAllData(); 
+    } catch (error: any) {
+      toast.error("فشل التحديث: " + error.message);
+    }
+  };
 
-  return (
-
-    <div dir={isRTL ? "rtl" : "ltr"} className="space-y-5">
-
-
-
-      {/* Header */}
-
-      <div className="flex items-center justify-between">
-
-        <div>
-
-          <h1 className={cn("text-xl font-black", darkMode ? "text-white" : "text-slate-900")}>
-
-            إدارة المستخدمين
-
-          </h1>
-
-          <p className={cn("text-sm mt-0.5", darkMode ? "text-slate-400" : "text-slate-500")}>
-
-            {counts.total} مستخدم مسجل
-
-          </p>
-
-        </div>
-
-        <Button
-
-          onClick={() => setShowModal(true)}
-
-          className="gap-2 text-sm font-bold text-white rounded-xl bg-gradient-to-r from-blue-900 to-blue-700"
-
-        >
-
-          <Plus size={15} />
-
-          إضافة موظف
-
-        </Button>
-
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-slate-950">
+      <div className="flex flex-col items-center gap-4">
+        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+          className="w-14 h-14 border-4 border-blue-600 border-t-transparent rounded-full shadow-lg"
+        />
+        <p className="text-slate-400 font-bold animate-pulse">جاري جلب البيانات من سوبابيز...</p>
       </div>
-
-
-
-      {/* Summary cards */}
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-
-        {[
-
-          { label: "إجمالي",     value: counts.total,      color: "blue"  },
-
-          { label: "نشطون",      value: counts.active,     color: "green" },
-
-          { label: "موظفون",     value: counts.agents,     color: "amber" },
-
-          { label: "غير موثقين", value: counts.unverified, color: "rose"  },
-
-        ].map((c, i) => (
-
-          <div key={i} className={cn(
-
-            "rounded-xl border p-4 text-center",
-
-            darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"
-
-          )}>
-
-            <div className={cn("text-2xl font-black mb-0.5",
-
-              c.color === "blue"  ? darkMode ? "text-blue-400"    : "text-blue-900"  :
-
-              c.color === "green" ? "text-emerald-500" :
-
-              c.color === "amber" ? "text-amber-500"   : "text-rose-500"
-
-            )}>
-
-              {c.value}
-
-            </div>
-
-            <div className={cn("text-xs", darkMode ? "text-slate-400" : "text-slate-500")}>{c.label}</div>
-
-          </div>
-
-        ))}
-
-      </div>
-
-
-
-      {/* Filters */}
-
-      <div className={cn(
-
-        "rounded-2xl border p-4 flex flex-col sm:flex-row gap-3",
-
-        darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"
-
-      )}>
-
-        {/* Search */}
-
-        <div className="relative flex-1">
-
-          <Search size={14} className={cn("absolute top-1/2 -translate-y-1/2 pointer-events-none",
-
-            isRTL ? "right-3" : "left-3",
-
-            darkMode ? "text-slate-500" : "text-slate-400")} />
-
-          <Input
-
-            value={search}
-
-            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
-
-            placeholder="ابحث باسم أو إيميل أو جوال..."
-
-            className={cn("rounded-xl h-9 text-sm",
-
-              isRTL ? "pr-9" : "pl-9",
-
-              darkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200")}
-
-          />
-
-        </div>
-
-
-
-        {/* Role filter */}
-
-        <div className="flex gap-1.5 flex-wrap">
-
-          {FILTER_ROLES.map(r => (
-
-            <button
-
-              key={r.value}
-
-              onClick={() => { setRoleFilter(r.value); setCurrentPage(1); }}
-
-              className={cn(
-
-                "text-xs font-bold px-3 py-2 rounded-xl transition-all",
-
-                roleFilter === r.value
-
-                  ? "bg-blue-900 text-white shadow"
-
-                  : darkMode ? "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-
-              )}
-
-            >
-
-              {r.label}
-
-            </button>
-
-          ))}
-
-        </div>
-
-      </div>
-
-
-
-      {/* Table */}
-
-      <div className={cn(
-
-        "rounded-2xl border overflow-hidden",
-
-        darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"
-
-      )}>
-
-        <div className="overflow-x-auto">
-
-          <table className="w-full">
-
-            <thead>
-
-              <tr className={cn("border-b text-xs font-bold",
-
-                darkMode ? "border-slate-800 text-slate-400" : "border-slate-100 text-slate-500")}>
-
-                <th className="px-4 py-3 text-start">المستخدم</th>
-
-                <th className="hidden px-4 py-3 text-start md:table-cell">الجوال</th>
-
-                <th className="px-4 py-3 text-start">الدور</th>
-
-                <th className="hidden px-4 py-3 text-start sm:table-cell">الحالة</th>
-
-                <th className="hidden px-4 py-3 text-start lg:table-cell">التوثيق</th>
-
-                <th className="hidden px-4 py-3 text-start xl:table-cell">تاريخ التسجيل</th>
-
-                <th className="px-4 py-3 text-start">إجراءات</th>
-
-              </tr>
-
-            </thead>
-
-            <tbody>
-
-              {paginated.length > 0 ? paginated.map(user => (
-
-                <UserRow
-
-                  key={user.id}
-
-                  user={user}
-
-                  darkMode={darkMode}
-
-                  onToggleStatus={handleToggleStatus}
-
-                  onChangeRole={handleChangeRole}
-
-                />
-
-              )) : (
-
-                <tr>
-
-                  <td colSpan={7} className="px-4 py-12 text-center">
-
-                    <Users size={32} className={cn("mx-auto mb-2", darkMode ? "text-slate-700" : "text-slate-300")} />
-
-                    <p className={cn("text-sm", darkMode ? "text-slate-500" : "text-slate-400")}>
-
-                      لا توجد نتائج
-
-                    </p>
-
-                  </td>
-
-                </tr>
-
-              )}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-
-
-        {/* Pagination */}
-
-        {totalPages > 1 && (
-
-          <div className={cn("flex items-center justify-between px-4 py-3 border-t text-xs",
-
-            darkMode ? "border-slate-800 text-slate-400" : "border-slate-100 text-slate-500")}>
-
-            <span>
-
-              عرض {Math.min((currentPage - 1) * PER_PAGE + 1, filtered.length)}–
-
-              {Math.min(currentPage * PER_PAGE, filtered.length)} من {filtered.length}
-
-            </span>
-
-            <div className="flex items-center gap-1">
-
-              <Button variant="outline" size="icon"
-
-                disabled={currentPage === 1}
-
-                onClick={() => setCurrentPage(p => p - 1)}
-
-                className={cn("w-7 h-7 rounded-lg", darkMode ? "border-slate-700" : "")}>
-
-                {isRTL ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
-
-              </Button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-
-                <button key={p} onClick={() => setCurrentPage(p)}
-
-                  className={cn("w-7 h-7 rounded-lg text-xs font-bold transition-all",
-
-                    p === currentPage
-
-                      ? "bg-blue-900 text-white"
-
-                      : darkMode ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-600"
-
-                  )}>
-
-                  {p}
-
-                </button>
-
-              ))}
-
-              <Button variant="outline" size="icon"
-
-                disabled={currentPage === totalPages}
-
-                onClick={() => setCurrentPage(p => p + 1)}
-
-                className={cn("w-7 h-7 rounded-lg", darkMode ? "border-slate-700" : "")}>
-
-                {isRTL ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
-
-              </Button>
-
-            </div>
-
-          </div>
-
-        )}
-
-      </div>
-
-
-
-      {/* Create staff modal */}
-
-      {showModal && (
-
-        <CreateStaffModal darkMode={darkMode} onClose={() => setShowModal(false)} />
-
-      )}
-
     </div>
-
   );
 
+  return (
+    <div className="min-h-screen bg-slate-950 p-4 md:p-8 lg:p-12 font-sans" dir="rtl">
+      <Toaster position="top-center" />
+      
+      <header className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
+        <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }}>
+          <h1 className="text-4xl font-black text-white flex items-center gap-3">
+             لوحة التحكم الإدارية <FiActivity className="text-blue-600 text-2xl" />
+          </h1>
+          <p className="text-slate-400 font-medium mt-2">مرحباً بكِ، إليكِ حالة المنصة الحالية.</p>
+        </motion.div>
+        
+        <div className="flex items-center gap-4">
+          <div className="relative group">
+            <FiSearch className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+            <input type="text" placeholder="بحث..." className="bg-slate-900 border-none text-white shadow-sm ring-1 ring-slate-800 pr-12 pl-6 py-3.5 rounded-2xl w-full md:w-80 outline-none" />
+          </div>
+          <button className="w-12 h-12 bg-slate-900 shadow-sm ring-1 ring-slate-800 rounded-2xl flex items-center justify-center">
+            <FiBell className="text-slate-600" />
+          </button>
+        </div>
+      </header>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        {stats.map((item, index) => (
+          <motion.div key={item.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}
+            className="bg-slate-900 p-6 rounded-[28px] shadow-sm border border-slate-800 hover:shadow-md transition-all group"
+          >
+            <div className={`w-14 h-14 ${item.color} rounded-2xl flex items-center justify-center text-white text-2xl mb-5 shadow-lg group-hover:scale-110 transition-transform`}>
+              {item.icon}
+            </div>
+            <h3 className="text-3xl font-black text-white">{item.value}</h3>
+            <p className="text-slate-400 font-bold text-xs uppercase mt-1">{item.label}</p>
+            <div className="mt-4 inline-flex items-center gap-2 text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full text-xs font-bold">{item.sub}</div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-slate-900 p-8 rounded-[35px] border border-slate-800 shadow-sm">
+          <h3 className="text-xl font-black text-white mb-8">توزيع العقارات حسب المدن</h3>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                <Tooltip cursor={{fill: '#1e293b'}} contentStyle={{backgroundColor: '#0f172a', borderRadius: '15px', border: 'none'}} />
+                <Bar dataKey="value" radius={[8, 8, 8, 8]} barSize={40}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#2563eb' : '#6366f1'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-slate-900 p-8 rounded-[35px] border border-slate-800 shadow-sm flex flex-col">
+          <h3 className="text-xl font-black text-white mb-8 flex items-center gap-3">
+            <FiClock className="text-blue-600" /> آخر النشاطات
+          </h3>
+          <div className="space-y-6 flex-1">
+            {recentActivities.map((act) => (
+              <div key={act.id} className="flex gap-4 items-start p-3 hover:bg-slate-800/50 rounded-2xl transition-colors">
+                <div className={`w-2.5 h-2.5 rounded-full mt-2 shrink-0 ${act.status === 'success' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'}`} />
+                <div>
+                  <p className="text-[14px] text-slate-200 font-bold leading-tight">{act.text}</p>
+                  <span className="text-[11px] font-semibold text-slate-400 mt-1 block">{act.time}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <section className="mt-8 bg-slate-900 rounded-[35px] border border-slate-800 shadow-sm overflow-hidden">
+        <div className="p-8 border-b border-slate-800 flex justify-between items-center">
+          <h3 className="text-2xl font-black text-white">إدارة المشاريع</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-right">
+            <thead>
+              <tr className="text-slate-500 text-[10px] uppercase tracking-widest border-b border-slate-800">
+                <th className="p-6 font-black">المشروع</th>
+                <th className="p-6 font-black text-center">المدينة</th>
+                <th className="p-6 font-black text-center">الحالة</th>
+                <th className="p-6 font-black text-left">التحكم</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {realProjects.map((project) => (
+                <tr key={project.id} className="group hover:bg-slate-800/50 transition-all">
+                  <td className="p-6 font-bold text-slate-200">{project.title_ar || "بدون اسم"}</td>
+                  <td className="p-6 text-center text-slate-400">{project.city_ar || "غير محدد"}</td>
+                  <td className="p-6 text-center">
+                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black ${
+                      project.status_ar === 'نشط' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                    }`}>
+                      {project.status_ar === 'نشط' ? 'منشور' : 'قيد المراجعة'}
+                    </span>
+                  </td>
+                  <td className="p-6 text-left">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => updateProjectStatus(project.id, 'نشط')} className="w-9 h-9 bg-slate-800 shadow-sm ring-1 ring-slate-700 text-emerald-400 rounded-xl flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"><FiCheck /></button>
+                      <button onClick={() => updateProjectStatus(project.id, 'معلق')} className="w-9 h-9 bg-slate-800 shadow-sm ring-1 ring-slate-700 text-rose-400 rounded-xl flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all"><FiX /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
 }

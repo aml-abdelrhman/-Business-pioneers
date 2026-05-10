@@ -10,8 +10,8 @@ import Process from "@/components/pages/Home/Process";
 import Mastery from "@/components/pages/Home/mastery";
 import Map from "@/components/pages/Home/Map";
 import Partners from "@/components/pages/Home/partners";
-import Courses from "@/components/pages/courses/courses";
-import BestSellers from "@/components/pages/courses/BestSellers";
+import Projects from "@/app/[locale]/projects/page";
+import BestSellers from "@/components/pages/projects/BestSellers";
 
 // import ClosedProjectsSection from "@/components/pages/home/closed-projects-section";
 // import HomeHeroSection from "@/components/pages/home/home-hero";
@@ -48,7 +48,7 @@ const HomePage = async () => {
       <Hero />
       <About />
 
-      <Courses />
+      <Projects />
 
       <Map />
 

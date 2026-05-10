@@ -1,286 +1,108 @@
 "use client";
 
-// ============================================================
-
-// src/app/[locale]/admin/layout.tsx — Admin Shell Layout
-
-// Sidebar + Topbar + Content area
-
-// ============================================================
-
 import { useState, useEffect } from "react";
-
 import { motion, AnimatePresence } from "framer-motion";
-
 import { usePathname } from "next/navigation";
-
 import { useLocale } from "next-intl";
-
 import { cn } from "@/lib/utils";
-
 import { useAppStore } from "@/store/useStore";
-
-import { useAdminGuard } from "@/hooks/useAuth";
-
+import { useAdminGuard } from "@/hooks/useAuth"; // تأكدي أن هذا الهوك يتحقق من الـ Role
 import { Link } from "@/i18n/navigation";
-
 import { logoutAction } from "@/actions/auth.actions";
-
-import { Button } from "@/components/ui/button";
-
-import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabase"; // استيراد سوبابيز
 
 import {
-  LayoutDashboard,
-  Users,
-  Building2,
-  FileText,
-  Settings,
-  X,
-  LogOut,
-  TrendingUp,
-  Shield,
-  MessageSquare,
-  Calendar,
+  LayoutDashboard, Users, Building2, FileText, Settings,
+  X, LogOut, TrendingUp, Shield, MessageSquare, Calendar,
+  Bell, ChevronDown
 } from "lucide-react";
 
-// ─── Nav items ────────────────────────────────────────────────
-
-interface NavItem {
-  label: string;
-
-  href: string;
-
-  icon: React.ElementType;
-
-  badge?: string | number;
-
-  color?: string;
-}
-
-const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
-  {
-    group: "الرئيسية",
-
-    items: [
-      { label: "لوحة التحكم", href: "/admin", icon: LayoutDashboard },
-
-      { label: "التقارير", href: "/admin/reports", icon: TrendingUp },
-    ],
-  },
-
-  {
-    group: "الإدارة",
-
-    items: [
-      { label: "المستخدمون", href: "/admin/users", icon: Users, badge: "جديد" },
-
-      { label: "العقارات", href: "/admin/properties", icon: Building2 },
-
-      { label: "المطورون", href: "/admin/developers", icon: Shield },
-
-      {
-        label: "الاستفسارات",
-        href: "/admin/inquiries",
-        icon: MessageSquare,
-        badge: 5,
-      },
-
-      { label: "المواعيد", href: "/admin/appointments", icon: Calendar },
-    ],
-  },
-
-  {
-    group: "المحتوى",
-
-    items: [{ label: "المقالات", href: "/admin/articles", icon: FileText }],
-  },
-
-  {
-    group: "النظام",
-
-    items: [{ label: "الإعدادات", href: "/admin/settings", icon: Settings }],
-  },
-];
-
-// ─── Sidebar ──────────────────────────────────────────────────
+// ─── Sidebar Component ─────────────────────────────────────────
 
 function Sidebar({
-  collapsed,
-
-  darkMode,
-
-  locale,
-
-  pathname,
-
-  onClose,
-}: {
-  collapsed: boolean;
-
-  darkMode: boolean;
-
-  locale: string;
-
-  pathname: string;
-
-  onClose?: () => void;
-}) {
+  collapsed, darkMode, locale, pathname, onClose, 
+  dynamicBadges // استلام الـ Badges الحية
+}: any) {
   const isRTL = locale === "ar";
-
   const cleanPath = pathname.replace(/^\/(ar|en)/, "") || "/admin";
 
+  const NAV_GROUPS = [
+    {
+      group: isRTL ? "الرئيسية" : "Main",
+      items: [
+        { label: isRTL ? "لوحة التحكم" : "Dashboard", href: "/admin", icon: LayoutDashboard },
+        { label: isRTL ? "التقارير" : "Reports", href: "/admin/reports", icon: TrendingUp },
+      ],
+    },
+    {
+      group: isRTL ? "الإدارة" : "Management",
+      items: [
+        { label: isRTL ? "المستخدمون" : "Users", href: "/admin/users", icon: Users },
+        { 
+          label: isRTL ? "العقارات" : "Properties", 
+          href: "/admin/properties", 
+          icon: Building2,
+          badge: dynamicBadges.pendingProperties > 0 ? dynamicBadges.pendingProperties : null 
+        },
+        { label: isRTL ? "المطورون" : "Developers", href: "/admin/developers", icon: Shield },
+        {
+          label: isRTL ? "الاستفسارات" : "Inquiries",
+          href: "/admin/inquiries",
+          icon: MessageSquare,
+          badge: dynamicBadges.inquiries > 0 ? dynamicBadges.inquiries : null,
+        },
+      ],
+    },
+  ];
+
   return (
-    <aside
-      className={cn(
-        "flex flex-col h-full transition-all duration-300",
-
-        darkMode
-          ? "bg-slate-900 border-slate-800"
-          : "bg-white border-slate-200",
-
-        "border-e",
-      )}
-    >
-      {/* Logo */}
-
-      <div
-        className={cn(
-          "flex items-center gap-3 px-4 py-15 border-b",
-
-          darkMode ? "border-slate-800" : "border-slate-100",
-        )}
-      >
-      
-
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: "auto" }}
-              exit={{ opacity: 0, width: 0 }}
-              className="overflow-hidden"
-            >
-             
-
-          
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Mobile close */}
-
-        {onClose && (
-          <button
-            onClick={onClose}
-            className={cn(
-              "ms-auto",
-              darkMode ? "text-slate-400" : "text-slate-500",
-            )}
-          >
-            <X size={18} />
-          </button>
+    <aside className={cn(
+      "flex flex-col h-full transition-all duration-300 border-e relative z-20",
+      darkMode ? "bg-[#0f172a] border-slate-800" : "bg-white border-slate-200"
+    )}>
+      {/* Admin Profile Info */}
+      <div className={cn(
+        "p-6 border-b flex items-center gap-3",
+        darkMode ? "border-slate-800" : "border-slate-100"
+      )}>
+        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
+          A
+        </div>
+        {!collapsed && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="overflow-hidden">
+            <p className="text-xs font-bold text-blue-500 uppercase tracking-tighter">Admin Panel</p>
+            <p className={cn("text-sm font-black truncate", darkMode ? "text-white" : "text-slate-900")}>
+              أمل عبد الرحمن
+            </p>
+          </motion.div>
         )}
       </div>
 
-      {/* Nav */}
-
-      <nav className="flex-1 px-2 py-4 space-y-5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto custom-scrollbar">
         {NAV_GROUPS.map(({ group, items }) => (
           <div key={group}>
-            {/* Group label */}
-
-            <AnimatePresence>
-              {!collapsed && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className={cn(
-                    "text-[10px] font-bold uppercase tracking-widest px-3 mb-1.5",
-
-                    darkMode ? "text-slate-600" : "text-slate-400",
-                  )}
-                >
-                  {group}
-                </motion.p>
-              )}
-            </AnimatePresence>
-
+            {!collapsed && (
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] px-3 mb-4 text-slate-500">
+                {group}
+              </p>
+            )}
             {items.map((item) => {
               const Icon = item.icon;
-
-              const isActive =
-                cleanPath === item.href ||
-                (item.href !== "/admin" && cleanPath.startsWith(item.href));
+              const isActive = cleanPath === item.href || (item.href !== "/admin" && cleanPath.startsWith(item.href));
 
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onClose}
+                <Link key={item.href} href={item.href} onClick={onClose}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-semibold mb-0.5 group relative",
-
-                    isActive
-                      ? darkMode
-                        ? "bg-blue-950 text-blue-300 border border-blue-900/60"
-                        : "bg-blue-50 text-blue-900 border border-blue-100"
-                      : darkMode
-                        ? "text-slate-400 hover:bg-slate-800 hover:text-white"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                    "flex items-center gap-3 px-3 py-3 rounded-2xl transition-all text-sm font-bold mb-1 group relative",
+                    isActive 
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
+                      : darkMode ? "text-slate-400 hover:bg-slate-800" : "text-slate-600 hover:bg-slate-50"
                   )}
                 >
-                  {/* Active indicator */}
-
-                  {isActive && (
-                    <span
-                      className={cn(
-                        "absolute inset-y-2 w-0.5 rounded-full",
-
-                        isRTL ? "right-0" : "left-0",
-
-                        "bg-amber-500",
-                      )}
-                    />
-                  )}
-
-                  <Icon
-                    size={17}
-                    className={cn(
-                      "flex-shrink-0",
-
-                      isActive ? "text-amber-500" : "",
-                    )}
-                  />
-
-                  <AnimatePresence>
-                    {!collapsed && (
-                      <motion.span
-                        initial={{ opacity: 0, width: 0 }}
-                        animate={{ opacity: 1, width: "auto" }}
-                        exit={{ opacity: 0, width: 0 }}
-                        className="flex-1 overflow-hidden whitespace-nowrap"
-                      >
-                        {item.label}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Badge */}
-
-                  {item.badge !== undefined && !collapsed && (
-                    <span
-                      className={cn(
-                        "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
-
-                        typeof item.badge === "number"
-                          ? "bg-rose-500 text-white"
-                          : darkMode
-                            ? "bg-amber-500/20 text-amber-400"
-                            : "bg-amber-100 text-amber-700",
-                      )}
-                    >
+                  <Icon size={18} />
+                  {!collapsed && <span className="flex-1">{item.label}</span>}
+                  {item.badge && !collapsed && (
+                    <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">
                       {item.badge}
                     </span>
                   )}
@@ -291,39 +113,11 @@ function Sidebar({
         ))}
       </nav>
 
-      {/* Logout */}
-
-      <div
-        className={cn(
-          "p-3 border-t",
-          darkMode ? "border-slate-800" : "border-slate-100",
-        )}
-      >
+      <div className={cn("p-4 border-t", darkMode ? "border-slate-800" : "border-slate-100")}>
         <form action={logoutAction}>
-          <button
-            type="submit"
-            className={cn(
-              "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors",
-
-              darkMode
-                ? "text-slate-400 hover:bg-rose-950 hover:text-rose-400"
-                : "text-slate-500 hover:bg-rose-50 hover:text-rose-600",
-            )}
-          >
-            <LogOut size={17} className="flex-shrink-0" />
-
-            <AnimatePresence>
-              {!collapsed && (
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  className="overflow-hidden whitespace-nowrap"
-                >
-                  تسجيل الخروج
-                </motion.span>
-              )}
-            </AnimatePresence>
+          <button type="submit" className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold text-rose-500 hover:bg-rose-50 transition-colors">
+            <LogOut size={18} />
+            {!collapsed && <span>تسجيل الخروج</span>}
           </button>
         </form>
       </div>
@@ -331,130 +125,125 @@ function Sidebar({
   );
 }
 
-// ─── Topbar ───────────────────────────────────────────────────
+// ─── Main Admin Layout ────────────────────────────────────────
 
-// ─── Admin Layout ─────────────────────────────────────────────
-
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const { darkMode, toggleDarkMode } = useAppStore();
-
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { darkMode } = useAppStore();
   const locale = useLocale();
-
   const pathname = usePathname();
-
-  const { user, isLoading } = useAdminGuard();
-
+  const { user, isLoading } = useAdminGuard(); // يتأكد من أن role === 'admin'
+  
   const [collapsed, setCollapsed] = useState(false);
-
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [badges, setBadges] = useState({ pendingProperties: 0, inquiries: 0 });
 
-  // Close mobile sidebar on route change
-
+  // جلب البيانات الحية للـ Badges
   useEffect(() => {
+    const fetchBadges = async () => {
+      const { count: propCount } = await supabase
+        .from('projects')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      // هنا يمكنك إضافة استعلام لجدول الاستفسارات أيضاً
+      setBadges({
+        pendingProperties: propCount || 0,
+        inquiries: 5 // مثال ثابت حتى يتوفر جدول الاستفسارات
+      });
+    };
+
+    fetchBadges();
+    
+    // إغلاق المنيو في الموبايل عند تغيير الصفحة
     setMobileOpen(false);
   }, [pathname]);
 
-  if (isLoading) {
-    return (
-      <div
-        className={cn(
-          "min-h-screen flex items-center justify-center",
-          darkMode ? "bg-slate-950" : "bg-slate-50",
-        )}
-      >
-        <div className="w-8 h-8 border-2 border-blue-700 rounded-full border-t-transparent animate-spin" />
-      </div>
-    );
-  }
+  if (isLoading) return (
+    <div className={cn("h-screen flex items-center justify-center", darkMode ? "bg-slate-950" : "bg-slate-50")}>
+       <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full" />
+    </div>
+  );
 
   return (
-   <div
-  className={cn(
-    "flex h-screen overflow-hidden transition-colors duration-300",
-    // الوضع المظلم: كحلي عميق جداً | الوضع الفاتح: كحلي فاتح مائل للرمادي أو أوف وايت بارد
-    darkMode 
-      ? "bg-[#0f172a] text-slate-200" 
-      : "bg-[#f8fafc] text-slate-900",
-  )}
-  dir={locale === "ar" ? "rtl" : "ltr"}
->
-  {/* إضافة خلفية متدرجة بسيطة (Neon Glow) لتعزيز شكل الـ Glassmorphism في الداشبورد */}
-  <div className="absolute inset-0 overflow-hidden pointer-events-none">
-    <div className={cn(
-      "absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full blur-[120px] opacity-20",
-      darkMode ? "bg-blue-600" : "bg-blue-300"
-    )} />
-  </div>
-      {/* ── Desktop sidebar ── */}
-<div 
-        className="absolute top-0 inset-x-0 h-[100px] bg-[#020617] shadow-xl border-b border-white/5" 
-        style={{ zIndex: 0 }} 
-      />
-      <motion.div
-        animate={{ width: collapsed ? 64 : 240 }}
-        transition={{ duration: 0.25, ease: "easeInOut" }}
-        className="flex-shrink-0 hidden h-full overflow-hidden lg:block"
+    <div className={cn("flex h-screen overflow-hidden", darkMode ? "bg-[#020617]" : "bg-[#f8fafc]")} dir={locale === "ar" ? "rtl" : "ltr"}>
+      
+      {/* Desktop Sidebar */}
+      <motion.div 
+        animate={{ width: collapsed ? 80 : 280 }} 
+        className="hidden lg:block shrink-0"
       >
-        <div className="h-full" style={{ width: collapsed ? 64 : 240 }}>
-          <Sidebar
-            collapsed={collapsed}
-            darkMode={darkMode}
-            locale={locale}
-            pathname={pathname}
-          />
-        </div>
+        <Sidebar 
+          collapsed={collapsed} 
+          darkMode={darkMode} 
+          locale={locale} 
+          pathname={pathname}
+          dynamicBadges={badges}
+        />
       </motion.div>
 
-      {/* ── Mobile sidebar overlay ── */}
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        
+        {/* Top Header */}
+        <header className={cn(
+          "h-20 flex items-center justify-between px-8 border-b z-10 backdrop-blur-md",
+          darkMode ? "bg-slate-900/50 border-slate-800" : "bg-white/50 border-slate-100"
+        )}>
+          <button onClick={() => setCollapsed(!collapsed)} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
+            <LayoutDashboard className="text-blue-600" size={20} />
+          </button>
 
+          <div className="flex items-center gap-4">
+             <div className="flex flex-col items-end hidden md:flex">
+                <span className={cn("text-sm font-black", darkMode ? "text-white" : "text-slate-900")}>
+                  {user?.email}
+                </span>
+                <span className="text-[10px] text-emerald-500 font-bold uppercase">Online • Admin</span>
+             </div>
+             <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden">
+                <img src={`https://ui-avatars.com/api/?name=${user?.email}&background=0D8ABC&color=fff`} alt="admin" />
+             </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto bg-transparent relative">
+          {/* Subtle Glow Effect */}
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
+          
+          <div className="p-6 lg:p-10 max-w-[1600px] mx-auto">
+            {children}
+          </div>
+        </main>
+      </div>
+
+      {/* Mobile Sidebar Logic (بسيط ومختصر) */}
       <AnimatePresence>
         {mobileOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileOpen(false)}
-              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-            />
-
-            <motion.div
-              initial={{ x: locale === "ar" ? "100%" : "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: locale === "ar" ? "100%" : "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className={cn(
-                "fixed top-0 h-full w-64 z-50 lg:hidden",
-
-                locale === "ar" ? "right-0" : "left-0",
-              )}
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 lg:hidden"
+            onClick={() => setMobileOpen(false)}
+          >
+            <motion.div 
+              initial={{ x: locale === 'ar' ? '100%' : '-100%' }}
+              animate={{ x: 0 }} exit={{ x: locale === 'ar' ? '100%' : '-100%' }}
+              className="w-72 h-full bg-white dark:bg-slate-900"
+              onClick={e => e.stopPropagation()}
             >
-              <Sidebar
-                collapsed={false}
-                darkMode={darkMode}
-                locale={locale}
-                pathname={pathname}
-                onClose={() => setMobileOpen(false)}
-              />
+              <Sidebar collapsed={false} darkMode={darkMode} locale={locale} pathname={pathname} dynamicBadges={badges} onClose={() => setMobileOpen(false)} />
             </motion.div>
-          </>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Main content ── */}
-
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-
-        {/* Scrollable content area */}
-
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-4 lg:p-6">{children}</div>
-        </main>
-      </div>
+      {/* Floating Mobile Toggle */}
+      <button 
+        onClick={() => setMobileOpen(true)}
+        className="fixed bottom-6 right-6 lg:hidden w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40"
+      >
+        <Shield size={24} />
+      </button>
     </div>
   );
 }

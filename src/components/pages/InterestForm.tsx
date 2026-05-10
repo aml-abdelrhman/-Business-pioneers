@@ -127,10 +127,10 @@ const ArchitecturalInterestForm = ({ isOpen, onClose }: { isOpen: boolean; onClo
             </button>
 
             {/* الجانب الجمالي */}
-            <div className="relative hidden md:block md:w-5/12 bg-[#111] overflow-hidden border-e border-white/5">
+            <div className="relative hidden md:block md:w-5/12 overflow-hidden border-e border-white/5">
                <img 
                  src="/images/about.jpg" 
-                 className="absolute inset-0 object-cover w-full h-full transition-all duration-1000 opacity-60 grayscale hover:grayscale-0"
+                 className="absolute inset-0 object-cover w-full h-full transition-all duration-1000"
                  alt="Architectural vision"
                />
                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />

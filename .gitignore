@@ -51,3 +51,10 @@ next-env.d.ts
 .env.test
 .env.production
 .env.staging
+/src/generated/prisma
+
+node_modules
+.env
+.next
+out
+build

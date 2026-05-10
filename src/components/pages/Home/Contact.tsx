@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useTranslations, useLocale } from 'next-intl';
 import { 
   FaEnvelope, 
@@ -9,41 +12,113 @@ import {
   FaWhatsapp, 
   FaMapMarkerAlt 
 } from 'react-icons/fa';
-import { Compass, Send, Phone, Mail, MapPin, ArrowRight, ArrowLeft, ArrowDownLeft, Layers } from 'lucide-react';
+import { Compass, Send, Phone, Mail, MapPin, Layers, Loader2, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/store/useStore';
+import { toast } from 'sonner'; // أو أي مكتبة Toast تستخدمينها
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 
+// تعريف المخطط (Schema) - يفضل وضعه في ملف خارجي للمشاركة
+const createContactSchema = (isAr: boolean) => z.object({
+  firstName: z.string().min(2, isAr ? 'الاسم الأول قصير جداً' : 'First name is too short'),
+  lastName: z.string().min(2, isAr ? 'اسم العائلة قصير جداً' : 'Last name is too short'),
+  email: z.string()
+    .email(isAr ? 'البريد الإلكتروني غير صحيح' : 'Invalid email address')
+    .trim(),
+  phone: z.string()
+    .regex(/^\+?[0-9\s\-()]{8,20}$/, isAr ? "رقم الهاتف غير صحيح" : "Invalid phone number")
+    .optional().or(z.literal('')),
+  subject: z.string().min(3, isAr ? 'الموضوع مطلوب' : 'Subject is required'),
+  message: z.string().min(5, isAr ? 'الرسالة قصيرة جداً (٥ أحرف على الأقل)' : 'Message is too short (min 5 chars)'),
+});
+
+// تعريف نوع البيانات بناءً على المخطط
+type ContactFormData = z.infer<ReturnType<typeof createContactSchema>>;
 
 const ContactPage = () => {
   const locale = useLocale();
-  const t = useTranslations('contact'); // تأكدي من وجود ملف json للترجمة
+  const t = useTranslations('contact');
   const isRtl = locale === 'ar';
   const { darkMode } = useAppStore();
 
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    subject: '',
-    phone: '',
-    message: '',
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  // إعداد React Hook Form مع Zod
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    formState: { errors, isSubmitting }
+  } = useForm<ContactFormData>({
+    resolver: zodResolver(createContactSchema(isRtl)),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      subject: '',
+      phone: '',
+      message: '',
+    }
   });
 
-  const [messageError, setMessageError] = useState('');
+  const onSubmit = async (data: ContactFormData) => {
+    try {
+      // تحسين شكل الـ Toast الخاص بجاري الإرسال
+      const validationToast = toast.loading(
+        isRtl ? "جاري إرسال رؤيتك للإبداع..." : "Sending your vision...",
+        {
+          className: cn(
+            "p-5 rounded-[1.5rem] border-2 font-cairo shadow-2xl",
+            darkMode ? "bg-slate-900 text-white border-amber-500/40" : "bg-white text-slate-900 border-slate-200"
+          ),
+        }
+      );
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+      const response = await fetch('/api/send-email', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.message.trim()) {
-      setMessageError(isRtl ? 'الرسالة مطلوبة' : 'Message is required');
-      return;
+      let result;
+      const contentType = response.headers.get("content-type");
+
+      toast.dismiss(validationToast); // إغلاق لودينج التحقق
+
+      // التحقق مما إذا كانت الاستجابة JSON أم HTML (صفحة خطأ)
+      if (contentType && contentType.includes("application/json")) {
+        result = await response.json();
+      } else {
+        const statusText = response.statusText || (response.status === 404 ? "Not Found" : "Server Error");
+        throw new Error(isRtl 
+          ? `خطأ في الخادم (${response.status}: ${statusText}). يرجى التأكد من مسار الرابط أو المحاولة لاحقاً.` 
+          : `Server Error (${response.status}: ${statusText}). Please check the API path or try again later.`);
+      }
+
+      if (response.ok) {
+        setIsSuccess(true);
+        reset();
+        toast.success(isRtl ? "تم التحقق والإرسال بنجاح!" : "Verified & Sent!", {
+          className: cn(
+            "text-xl p-6 rounded-[2rem] border-2",
+            darkMode 
+              ? "bg-slate-900 text-white border-amber-500/50 font-cairo" 
+              : "bg-white text-slate-900 border-amber-500/20 font-cairo"
+          ),
+          duration: 5000,
+        });
+        setTimeout(() => setIsSuccess(false), 5000);
+      } else {
+        throw new Error(result.error || 'Server error');
+      }
+    } catch (error: any) {
+      toast.error(isRtl ? `خطأ: ${error.message}` : `Error: ${error.message}`, {
+        className: "text-xl p-6 rounded-[2rem] font-cairo border-2 border-red-500",
+      });
     }
-    // Logic الارسال هنا
-    console.log(formData);
   };
 
   const contactMethods = [
@@ -76,7 +151,7 @@ const ContactPage = () => {
       darkMode ? "bg-[#030303]" : "bg-white"
     )} dir={isRtl ? 'rtl' : 'ltr'}>
 
-      {/* Dark Header Backdrop for Visual Impact */}
+      {/* Dark Header Backdrop */}
       <div className={cn(
         "absolute top-0 left-0 right-0 h-[600px] md:h-[750px] transition-all duration-1000 z-0",
         !darkMode ? "bg-[#0a192f]" : "bg-[#030303]"
@@ -87,7 +162,7 @@ const ContactPage = () => {
         <div className={cn(
           "absolute inset-0",
           darkMode 
-            ? "bg-[radial-gradient(#amber-500_1px,transparent_1px)]" 
+            ? "bg-[radial-gradient(theme(colors.amber.500)_1px,transparent_1px)]" 
             : "bg-[radial-gradient(#ffffff_1px,transparent_1px)]"
         )} style={{ backgroundSize: '40px 40px' }} />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#030303] dark:to-black" />
@@ -129,7 +204,6 @@ const ContactPage = () => {
             }
           </p>
 
-          {/* Decorative Divider */}
           <motion.div 
             initial={{ width: 0 }}
             whileInView={{ width: "100px" }}
@@ -137,7 +211,7 @@ const ContactPage = () => {
           />
         </div>
 
-        {/* الإطار الرئيسي (The Main Frame) */}
+        {/* Main Frame */}
         <div className={cn(
           "relative p-8 md:p-16 rounded-[3.5rem] border backdrop-blur-xl overflow-hidden shadow-2xl transition-all duration-500",
           darkMode 
@@ -145,13 +219,12 @@ const ContactPage = () => {
             : "bg-white/80 border-slate-200 shadow-slate-200"
         )}>
           
-          {/* عناصر زخرفية داخل الإطار */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/5 rounded-full blur-[100px] -mr-48 -mt-48 pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-[100px] -ml-48 -mb-48 pointer-events-none" />
 
           <div className="relative z-10 space-y-12">
             
-            {/* 1. وسائل التواصل - مربعات جمب بعض */}
+            {/* Contact Methods Cards */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {contactMethods.map((item, idx) => (
                 <motion.a
@@ -179,7 +252,7 @@ const ContactPage = () => {
               ))}
             </div>
 
-            {/* 2. مستطيل الموقع العريض (المقر الرئيسي) */}
+            {/* Location Bar */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -219,95 +292,137 @@ const ContactPage = () => {
               </div>
             </motion.div>
 
-           
-            {/* 3. الفورم الموسعة */}
+            {/* Form Section */}
             <div className="w-full max-w-5xl pt-4 mx-auto">
-              <motion.form 
-                onSubmit={handleSubmit}
-                className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6"
-              >
-                {/* الاسم الأول */}
-                <div className="space-y-1.5">
-                  <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "الاسم الأول" : "First Name"}</label>
-                  <input 
-                    name="firstName"
-                    onChange={handleChange}
-                    className={cn("w-full border-none rounded-2xl p-4 text-lg font-medium outline-none transition-all", darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200")}
-                    placeholder={isRtl ? "الاسم الأول" : "First Name"}
-                  />
-                </div>
-                
-                {/* الاسم الأخير */}
-                <div className="space-y-1.5">
-                  <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "اسم العائلة" : "Last Name"}</label>
-                  <input 
-                    name="lastName"
-                    onChange={handleChange}
-                    className={cn("w-full border-none rounded-2xl p-4 text-lg font-medium outline-none transition-all", darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200")}
-                    placeholder={isRtl ? "اسم العائلة" : "Last Name"}
-                  />
-                </div>
-
-                {/* البريد الإلكتروني */}
-                <div className="space-y-1.5">
-                  <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "البريد الإلكتروني" : "Email Address"}</label>
-                  <input 
-                    name="email"
-                    type="email"
-                    onChange={handleChange}
-                    className={cn("w-full border-none rounded-2xl p-4 text-lg font-medium outline-none transition-all", darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200")}
-                    placeholder="example@mail.com"
-                  />
-                </div>
-
-                {/* رقم الجوال */}
-                <div className="space-y-1.5">
-                  <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "الجوال" : "Phone"}</label>
-                  <input 
-                    name="phone"
-                    onChange={handleChange}
-                    className={cn("w-full border-none rounded-2xl p-4 text-lg font-medium outline-none transition-all", darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200")}
-                    placeholder="+966"
-                  />
-                </div>
-
-                {/* موضوع الرسالة */}
-                <div className="md:col-span-2 space-y-1.5">
-                  <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "الموضوع" : "Subject"}</label>
-                  <input 
-                    name="subject"
-                    onChange={handleChange}
-                    className={cn("w-full border-none rounded-2xl p-4 text-lg font-medium outline-none transition-all", darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200")}
-                    placeholder={isRtl ? "ما هو موضوع استفسارك؟" : "What is your inquiry about?"}
-                  />
-                </div>
-
-                {/* الرسالة */}
-                <div className="md:col-span-2 space-y-1.5">
-                  <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "الرسالة" : "Message"}</label>
-                  <textarea 
-                    name="message"
-                    onChange={handleChange}
-                    rows={4}
-                    className={cn(
-                      "w-full border-none rounded-3xl p-5 text-lg font-medium outline-none transition-all resize-none",
-                      darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200"
-                    )}
-                    placeholder={isRtl ? "كيف يمكننا مساعدتك؟" : "How can we help you?"}
-                  />
-                  {messageError && <p className="px-2 text-xs font-bold text-red-500">{messageError}</p>}
-                </div>
-                
-                <div className="pt-4 md:col-span-2">
-                  <Button 
-                    type="submit"
-                    className="flex items-center w-full gap-3 py-8 text-xl font-black tracking-widest uppercase transition-all shadow-xl md:w-auto px-14 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/20"
+              <AnimatePresence mode="wait">
+                {isSuccess ? (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="flex flex-col items-center justify-center py-20 text-center space-y-6"
                   >
-                    {isRtl ? "إرسال الطلب" : "Send Request"}
-                    <Send size={16} />
-                  </Button>
-                </div>
-              </motion.form>
+                    <div className="p-6 rounded-full bg-green-500/10 text-green-500">
+                      <CheckCircle2 size={80} />
+                    </div>
+                    <h2 className={cn("text-3xl font-bold", darkMode ? "text-white" : "text-slate-900")}>
+                      {isRtl ? "تم استلام رسالتك!" : "Message Received!"}
+                    </h2>
+                    <p className="text-slate-500 max-w-md">
+                      {isRtl 
+                        ? "شكراً لتواصلك معنا. سيقوم فريقنا الهندسي بالرد عليك عبر البريد الإلكتروني في أقرب وقت ممكن."
+                        : "Thank you for reaching out. Our architectural team will get back to you via email as soon as possible."}
+                    </p>
+                  </motion.div>
+                ) : (
+                  <motion.form 
+                    key="contact-form"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    onSubmit={handleSubmit(onSubmit)}
+                    className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6"
+                  >
+                    <div className="space-y-1.5">
+                      <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "الاسم الأول" : "First Name"}</label>
+                      <input 
+                        {...register('firstName')}
+                        className={cn("w-full border-none rounded-2xl p-4 text-lg font-medium outline-none transition-all", darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200")}
+                        placeholder={isRtl ? "الاسم الأول" : "First Name"}
+                      />
+                      {errors.firstName && <p className="px-2 text-xs font-bold text-red-500">{errors.firstName.message}</p>}
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "اسم العائلة" : "Last Name"}</label>
+                      <input 
+                        {...register('lastName')}
+                        className={cn("w-full border-none rounded-2xl p-4 text-lg font-medium outline-none transition-all", darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200")}
+                        placeholder={isRtl ? "اسم العائلة" : "Last Name"}
+                      />
+                      {errors.lastName && <p className="px-2 text-xs font-bold text-red-500">{errors.lastName.message}</p>}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "البريد الإلكتروني" : "Email Address"}</label>
+                      <input 
+                        {...register('email')}
+                        className={cn("w-full border-none rounded-2xl p-4 text-lg font-medium outline-none transition-all", darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200")}
+                        placeholder="example@mail.com"
+                      />
+                      {errors.email && <p className="px-2 text-xs font-bold text-red-500">{errors.email.message}</p>}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "الجوال" : "Phone"}</label>
+                      <Controller
+                        name="phone"
+                        control={control}
+                        render={({ field }) => (
+                          <PhoneInput
+                            {...field}
+                            international
+                            defaultCountry="SA"
+                            placeholder={isRtl ? "05xxxxxxxx" : "+966xxxxxxxx"}
+                            className={cn(
+                              "w-full rounded-2xl p-4 text-lg font-medium transition-all flex items-center gap-4 group border-2 border-transparent",
+                              darkMode 
+                                ? "bg-white/5 text-white focus-within:border-amber-500/30 focus-within:bg-white/10" 
+                                : "bg-slate-100 text-slate-900 focus-within:border-amber-500/20 focus-within:bg-slate-200",
+                              // تحسينات متقدمة للدروب داون والعلم عبر CSS Selectors
+                              "[&_select]:cursor-pointer [&_select]:bg-transparent [&_select]:outline-none [&_select]:w-full [&_select]:h-full [&_select]:absolute [&_select]:opacity-0",
+                              "[&_.PhoneInputCountry]:relative [&_.PhoneInputCountry]:flex [&_.PhoneInputCountry]:items-center [&_.PhoneInputCountry]:gap-1",
+                              "[&_select_option]:text-slate-900 [&_select_option]:bg-white",
+                              "[&_input]:bg-transparent [&_input]:border-none [&_input]:outline-none [&_input]:flex-1"
+                            )}
+                          />
+                        )}
+                      />
+                      {errors.phone && <p className="px-2 text-xs font-bold text-red-500">{errors.phone.message}</p>}
+                    </div>
+
+                    <div className="md:col-span-2 space-y-1.5">
+                      <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "الموضوع" : "Subject"}</label>
+                      <input 
+                        {...register('subject')}
+                        className={cn("w-full border-none rounded-2xl p-4 text-lg font-medium outline-none transition-all", darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200")}
+                        placeholder={isRtl ? "ما هو موضوع استفسارك؟" : "What is your inquiry about?"}
+                      />
+                      {errors.subject && <p className="px-2 text-xs font-bold text-red-500">{errors.subject.message}</p>}
+                    </div>
+
+                    <div className="md:col-span-2 space-y-1.5">
+                      <label className="px-2 text-sm font-bold tracking-widest uppercase text-slate-500">{isRtl ? "الرسالة" : "Message"}</label>
+                      <textarea 
+                        {...register('message')}
+                        rows={4}
+                        className={cn(
+                          "w-full border-none rounded-3xl p-5 text-lg font-medium outline-none transition-all resize-none",
+                          darkMode ? "bg-white/5 text-white focus:bg-white/10" : "bg-slate-100 text-slate-900 focus:bg-slate-200"
+                        )}
+                        placeholder={isRtl ? "كيف يمكننا مساعدتك؟" : "How can we help you?"}
+                      />
+                      {errors.message && <p className="px-2 text-xs font-bold text-red-500">{errors.message.message}</p>}
+                    </div>
+                    
+                    <div className="pt-4 md:col-span-2">
+                      <Button 
+                        disabled={isSubmitting}
+                        type="submit"
+                        className="flex items-center w-full gap-3 py-8 text-xl font-black tracking-widest uppercase transition-all shadow-xl md:w-auto px-14 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/20 disabled:opacity-70"
+                      >
+                        {isSubmitting ? (
+                          <Loader2 className="animate-spin" size={24} />
+                        ) : (
+                          <>
+                            {isRtl ? "إرسال الطلب" : "Send Request"}
+                            <Send size={16} />
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </motion.form>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
